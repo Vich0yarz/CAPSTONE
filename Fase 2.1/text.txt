@@ -1,0 +1,45 @@
+Estimados/as estudiantes:
+
+Junto con saludar, espero que se encuentren muy bien.
+Como parte del desarrollo del proyecto, y con el propósito de que puedan avanzar de manera ordenada, profesional y aplicando principios de gestión ágil, 
+les comparto las orientaciones y el conjunto de documentos que deberán desarrollar durante el semestre.
+Es importante comprender que esta actividad no consiste únicamente en generar documentos para cumplir con una entrega. 
+Cada uno de estos artefactos debe permitir demostrar cómo evoluciona su proyecto: desde la identificación del problema, 
+la comprensión de los usuarios y la definición de la solución, hasta la planificación, desarrollo, pruebas, validación, mejora y cierre.
+
+La documentación debe construirse progresivamente durante el desarrollo del proyecto, manteniendo coherencia y trazabilidad entre los distintos elementos. 
+La guía de gestión ágil busca precisamente asegurar transparencia, trazabilidad, calidad, colaboración y entrega continua de valor.
+
+1- Ficha del proyecto : Resumen ejecutivo: nombre, sponsor, Product Owner, Scrum Master, equipo, fechas, problema, solución, objetivos, alcance, presupuesto, usuarios, tecnología, riesgos e indicadores.
+
+2- Acta de constitución: Formaliza el inicio; incluye justificación, problema, objetivos, alcance inicial, restricciones, supuestos, riesgos, stakeholders y criterios de éxito.
+
+3- Registro de stakeholders: Identifica interesados, rol, interés, influencia, expectativas y estrategia de involucramiento.
+
+4- Mapa de actores: Representa relaciones e influencia entre participantes (solo 3)
+
+5- Product Vision: Define para quién es el producto, qué problema resuelve, qué solución propone, qué valor entrega y qué lo diferencia.
+
+6- Product Goal: Objetivo de producto que orienta el trabajo del equipo.
+
+7- Product Roadmap: Muestra la evolución prevista del producto por versiones, temas o entregas.
+
+8- Requisitos funcionales: Especifican qué debe hacer el sistema
+
+9- Requisitos no funcionales: Definen atributos como seguridad, rendimiento, disponibilidad, usabilidad y escalabilidad.
+
+10- Historias de usuario Realizar HU con criterios de acepttación
+
+11- Product Backlog: Lista ordenada y viva de todo el trabajo necesario para evolucionar el producto
+
+12- Sprint Backlog: Historias seleccionadas para el Sprint y plan de trabajo asociado. (dependiendo los sprint)
+
+13- Daily Scrum: Inspección frecuente del progreso hacia el Sprint Goal y adaptación del plan.
+
+14- Documento Arquitectura de software : Explica componentes principales, decisiones, integraciones, tecnologías y restricciones.
+
+15- Modelo de base de datos: aplicar el modelo de base de datos que aplicará en su proyecto
+
+16- Diagrama de caso de uso , diagrama de componente , diagrama de clase , diagrama de despliegue
+
+17- Software programado (se entrega video del programa )
