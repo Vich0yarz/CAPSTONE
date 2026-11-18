@@ -30,6 +30,7 @@ class Company(models.Model):
 
 class UserManager(BaseUserManager):
     def create_user(self, mail_user, password, **extra):
+        mail_user = mail_user.strip().lower()
         user = self.model(mail_user=self.normalize_email(mail_user), **extra)
         user.set_password(password)  # aquí se aplica Argon2
         user.save(using=self._db)

@@ -1,0 +1,45 @@
+{% extends "accounts/base.html" %}
+{% block content %}
+<h1>Administración de usuarios</h1>
+<p>Empresa: {{ request.user.company.name_company }}</p>
+
+<details {% if abrir_form %}open{% endif %}>
+  <summary><strong>Agregar trabajador</strong></summary>
+  <form method="post" action="{% url 'administracion' %}">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Aceptar</button>
+  </form>
+</details>
+
+<table border="1">
+  <tr><th>Correo</th><th>Rol</th><th>Cambiar rol</th><th>Eliminar</th></tr>
+  {% for u in usuarios %}
+  <tr>
+    <td>{{ u.mail_user }}</td>
+    <td>{{ u.role.name_role }}</td>
+    <td>
+      <form method="post" action="{% url 'cambiar_rol' %}">
+        {% csrf_token %}
+        <input type="hidden" name="mail_user" value="{{ u.mail_user }}">
+        <select name="role">
+          {% for r in roles %}
+            <option value="{{ r.pk }}" {% if r.pk == u.role_id %}selected{% endif %}>{{ r.name_role }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit">Guardar rol</button>
+      </form>
+    </td>
+    <td>
+      <form method="post" action="{% url 'eliminar_usuario' %}"
+            onsubmit="return confirm('¿Eliminar a este usuario?');">
+        {% csrf_token %}
+        <input type="hidden" name="mail_user" value="{{ u.mail_user }}">
+        <button type="submit">Eliminar</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+<p><a href="{% url 'home' %}">Volver</a></p>
+{% endblock %}
