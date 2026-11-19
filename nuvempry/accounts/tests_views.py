@@ -1,4 +1,6 @@
-from django.test import TestCase
+from django.test import Client, TestCase
+from django.core.exceptions import ValidationError
+from accounts.forms import calcular_dv, parsear_rut
 from django.urls import reverse
 
 from accounts.models import Company, Role, User
@@ -149,6 +151,23 @@ class LoginRegistroTests(Base):
         r = self.client.post(reverse("register"), self.datos)
         self.assertEqual(r.context["paso_inicial"], 1)
 
+    def test_empresa_ya_registrada(self):
+        self.crear("otro@x.cl", "Propietario", rut=12345678, dv="5", owner=True)
+        r = self.client.post(reverse("register"), self.datos)  # usa el RUT 12.345.678-5
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "ya está registrada")
+        self.assertFalse(User.objects.filter(pk="nuevo@x.cl").exists())
+
+    def test_correo_en_mayusculas_se_guarda_en_minusculas(self):
+        self.client.post(reverse("register"), {**self.datos, "mail_user": "NUEVO@X.CL"})
+        self.assertTrue(User.objects.filter(pk="nuevo@x.cl").exists())
+
+    def test_contrasenas_debiles_se_rechazan(self):
+        for clave in ["abc", "12345678", "password"]:
+            r = self.client.post(reverse("register"), {**self.datos, "password": clave, "password2": clave})
+            self.assertEqual(r.status_code, 200)
+        self.assertFalse(Company.objects.exists())
+
 
 class TrabajadorTests(Base):
     def datos(self, **extra):
@@ -275,3 +294,83 @@ class EliminarCuentaTests(Base):
         self.assertFalse(User.objects.filter(company_id=11111111).exists())
         self.assertFalse(Item.objects.filter(company_id=11111111).exists())
         self.assertTrue(User.objects.filter(pk="otro@b.cl").exists())  # otra empresa intacta
+
+
+class RutTests(TestCase):
+    def test_formatos_validos(self):
+        self.assertEqual(parsear_rut("12.345.678-5"), (12345678, "5"))
+        self.assertEqual(parsear_rut("12345678-5"), (12345678, "5"))
+        self.assertEqual(parsear_rut(" 12.345.678-5 "), (12345678, "5"))
+
+    def test_digito_k_y_cero(self):
+        self.assertEqual(calcular_dv(1000005), "K")
+        self.assertEqual(parsear_rut("1000005-k"), (1000005, "K"))  # acepta k minúscula
+        self.assertEqual(parsear_rut("1000044-0"), (1000044, "0"))
+
+    def test_formatos_invalidos(self):
+        for texto in ["abcdefg-1", "12345678", "1234-5", "12345678-A",
+                      "123456789-5", "0000001-9", "12345678-9", ""]:
+            with self.assertRaises(ValidationError):
+                parsear_rut(texto)
+
+
+class LogoutTests(Base):
+    def test_get_no_cierra_sesion(self):
+        self.client.force_login(self.crear("a@a.cl", "Lector"))
+        self.assertEqual(self.client.get(reverse("logout")).status_code, 405)
+        self.assertEqual(self.client.get(reverse("home")).status_code, 200)
+
+    def test_post_cierra_sesion(self):
+        self.client.force_login(self.crear("a@a.cl", "Lector"))
+        r = self.client.post(reverse("logout"))
+        self.assertRedirects(r, reverse("login"))
+        self.assertEqual(self.client.get(reverse("home")).status_code, 302)
+
+
+class ReglasDeProteccionTests(Base):
+    def setUp(self):
+        self.dueno = self.crear("dueno@a.cl", "Propietario", owner=True)
+        self.socio = self.crear("socio@a.cl", "Propietario")  # Propietario que no es el dueño
+        self.emp = self.crear("emp@a.cl", "Operativo")
+        self.lector = self.crear("lec@a.cl", "Lector")
+        self.operativo = Role.objects.get(name_role="Operativo")
+
+    def test_no_se_cambia_el_rol_del_propietario(self):
+        self.client.force_login(self.socio)
+        self.client.post(reverse("cambiar_rol"), {"mail_user": "dueno@a.cl", "role": self.operativo.pk})
+        self.dueno.refresh_from_db()
+        self.assertEqual(self.dueno.role.name_role, "Propietario")
+
+    def test_no_se_cambia_el_propio_rol(self):
+        self.client.force_login(self.socio)
+        self.client.post(reverse("cambiar_rol"), {"mail_user": "socio@a.cl", "role": self.operativo.pk})
+        self.socio.refresh_from_db()
+        self.assertEqual(self.socio.role.name_role, "Propietario")
+
+    def test_propietario_elimina_a_un_trabajador(self):
+        self.client.force_login(self.dueno)
+        r = self.client.post(reverse("eliminar_usuario"), {"mail_user": "emp@a.cl"})
+        self.assertRedirects(r, reverse("administracion"))
+        self.assertFalse(User.objects.filter(pk="emp@a.cl").exists())
+
+    def test_no_se_elimina_a_si_mismo(self):
+        self.client.force_login(self.socio)
+        self.client.post(reverse("eliminar_usuario"), {"mail_user": "socio@a.cl"})
+        self.assertTrue(User.objects.filter(pk="socio@a.cl").exists())
+
+    def test_operativo_y_lector_no_pueden_cambiar_roles(self):
+        for usuario in (self.emp, self.lector):
+            self.client.force_login(usuario)
+            r = self.client.post(reverse("cambiar_rol"), {"mail_user": "lec@a.cl", "role": self.operativo.pk})
+            self.assertEqual(r.status_code, 403)
+
+
+class CsrfTests(Base):
+    def test_post_sin_token_es_rechazado(self):
+        dueno = self.crear("dueno@a.cl", "Propietario", owner=True)
+        self.crear("emp@a.cl", "Operativo")
+        cliente = Client(enforce_csrf_checks=True)  # este cliente SÍ exige el token
+        cliente.force_login(dueno)
+        r = cliente.post(reverse("eliminar_usuario"), {"mail_user": "emp@a.cl"})
+        self.assertEqual(r.status_code, 403)
+        self.assertTrue(User.objects.filter(pk="emp@a.cl").exists())
