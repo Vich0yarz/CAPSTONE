@@ -2,6 +2,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from accounts.models import Company, Role, User
+from inventory.models import Item
 
 CLAVE = "ClaveSegura123!"
 
@@ -39,6 +40,24 @@ class AccesoTests(Base):
         r = self.client.get(reverse("administracion"))
         self.assertContains(r, "emp@a.cl")
         self.assertNotContains(r, "otro@b.cl")
+
+    def test_filtro_por_rol(self):
+        dueno = self.crear("dueno@a.cl", "Propietario", owner=True)
+        self.crear("emp@a.cl", "Operativo")
+        self.crear("lec@a.cl", "Lector")
+        self.client.force_login(dueno)
+        operativo = Role.objects.get(name_role="Operativo")
+        r = self.client.get(reverse("administracion"), {"rol": operativo.pk})
+        self.assertContains(r, "emp@a.cl")
+        self.assertNotContains(r, "lec@a.cl")
+
+    def test_filtro_invalido_se_ignora(self):
+        dueno = self.crear("dueno@a.cl", "Propietario", owner=True)
+        self.crear("emp@a.cl", "Operativo")
+        self.client.force_login(dueno)
+        r = self.client.get(reverse("administracion"), {"rol": "abc"})
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "emp@a.cl")
 
 
 class ManipulacionTests(Base):
@@ -121,6 +140,15 @@ class LoginRegistroTests(Base):
         self.assertEqual(r.status_code, 200)
         self.assertFalse(Company.objects.exists())
 
+    def test_error_de_rut_vuelve_al_paso_2(self):
+        r = self.client.post(reverse("register"), {**self.datos, "rut_company": "12345678-9"})
+        self.assertEqual(r.context["paso_inicial"], 2)
+
+    def test_error_de_correo_vuelve_al_paso_1(self):
+        self.crear("nuevo@x.cl", "Lector")
+        r = self.client.post(reverse("register"), self.datos)
+        self.assertEqual(r.context["paso_inicial"], 1)
+
 
 class TrabajadorTests(Base):
     def datos(self, **extra):
@@ -176,3 +204,74 @@ class TrabajadorTests(Base):
         r = self.client.post(reverse("administracion"), self.datos())
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "ya está registrado")
+
+class ConfiguracionTests(Base):
+    def test_requiere_sesion(self):
+        r = self.client.get(reverse("configuracion"))
+        self.assertRedirects(r, reverse("login") + "?next=" + reverse("configuracion"))
+
+    def test_cambiar_datos_ignora_el_correo(self):
+        u = self.crear("a@a.cl", "Lector")
+        self.client.force_login(u)
+        r = self.client.post(reverse("configuracion"), {
+            "accion": "datos", "name_user": "Ana María", "surname_user": "Soto Díaz",
+            "mail_user": "otro@x.cl",   # intento de cambiar el correo: se ignora
+        })
+        self.assertRedirects(r, reverse("configuracion"))
+        u.refresh_from_db()
+        self.assertEqual((u.name_user, u.surname_user), ("Ana María", "Soto Díaz"))
+        self.assertTrue(User.objects.filter(pk="a@a.cl").exists())
+
+    def test_cambiar_clave_mantiene_la_sesion(self):
+        u = self.crear("a@a.cl", "Lector")
+        self.client.force_login(u)
+        r = self.client.post(reverse("configuracion"), {
+            "accion": "clave", "clave_actual": CLAVE,
+            "clave_nueva": "OtraClave456!", "clave_nueva2": "OtraClave456!",
+        })
+        self.assertRedirects(r, reverse("configuracion"))
+        u.refresh_from_db()
+        self.assertTrue(u.check_password("OtraClave456!"))
+        self.assertEqual(self.client.get(reverse("configuracion")).status_code, 200)
+
+    def test_clave_actual_incorrecta_no_cambia_nada(self):
+        u = self.crear("a@a.cl", "Lector")
+        self.client.force_login(u)
+        r = self.client.post(reverse("configuracion"), {
+            "accion": "clave", "clave_actual": "mala",
+            "clave_nueva": "OtraClave456!", "clave_nueva2": "OtraClave456!",
+        })
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "no es correcta")
+        u.refresh_from_db()
+        self.assertTrue(u.check_password(CLAVE))
+
+
+class EliminarCuentaTests(Base):
+    def test_solo_el_dueno_puede(self):
+        self.crear("dueno@a.cl", "Propietario", owner=True)
+        op = self.crear("op@a.cl", "Operativo")
+        self.client.force_login(op)
+        r = self.client.post(reverse("eliminar_cuenta"), {"password": CLAVE})
+        self.assertEqual(r.status_code, 403)
+        self.assertTrue(Company.objects.filter(rut_company=11111111).exists())
+
+    def test_clave_incorrecta_no_borra(self):
+        dueno = self.crear("dueno@a.cl", "Propietario", owner=True)
+        self.client.force_login(dueno)
+        r = self.client.post(reverse("eliminar_cuenta"), {"password": "mala"})
+        self.assertRedirects(r, reverse("configuracion"))
+        self.assertTrue(Company.objects.filter(rut_company=11111111).exists())
+
+    def test_borra_empresa_usuarios_y_datos_solo_de_esa_empresa(self):
+        dueno = self.crear("dueno@a.cl", "Propietario", owner=True)
+        self.crear("emp@a.cl", "Operativo")
+        self.crear("otro@b.cl", "Lector", rut=22222222, dv="2")
+        Item.objects.create(company=dueno.company, name_item="Producto", stock=1)
+        self.client.force_login(dueno)
+        r = self.client.post(reverse("eliminar_cuenta"), {"password": CLAVE})
+        self.assertRedirects(r, reverse("login"))
+        self.assertFalse(Company.objects.filter(rut_company=11111111).exists())
+        self.assertFalse(User.objects.filter(company_id=11111111).exists())
+        self.assertFalse(Item.objects.filter(company_id=11111111).exists())
+        self.assertTrue(User.objects.filter(pk="otro@b.cl").exists())  # otra empresa intacta

@@ -1,10 +1,35 @@
-{% extends "accounts/base.html" %}
+{% extends "accounts/base_auth.html" %}
+{% load static %}
+{% block titulo %}Crear cuenta · Nuvempry{% endblock %}
+
 {% block content %}
-<h1>Registro</h1>
-<form method="post">
+<form method="post" id="form-registro">
   {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Confirmar</button>
+
+  <section class="paso {% if paso_inicial == 1 %}activo{% endif %}" data-paso="1">
+    <h1 class="auth-titulo">Crear cuenta</h1>
+    <p class="auth-sub">Completa tus datos para registrarte en Nuvempry</p>
+    {% include "accounts/_campo.html" with campo=form.name_user %}
+    {% include "accounts/_campo.html" with campo=form.surname_user %}
+    {% include "accounts/_campo.html" with campo=form.mail_user %}
+    {% include "accounts/_campo.html" with campo=form.password %}
+    {% include "accounts/_campo.html" with campo=form.password2 %}
+    <button type="button" id="btn-continuar" class="btn btn-nv btn-lg w-100 mt-2">Continuar</button>
+  </section>
+
+  <section class="paso {% if paso_inicial == 2 %}activo{% endif %}" data-paso="2">
+    <button type="button" id="btn-volver" class="btn-atras" aria-label="Volver al paso anterior">
+      <svg class="ico ico-lg"><use href="#i-arrow-left"/></svg>
+    </button>
+    <h1 class="auth-titulo">Registrar empresa</h1>
+    <p class="auth-sub">Completa los datos de tu empresa para continuar.</p>
+    {% for e in form.non_field_errors %}<div class="alert alert-danger py-2">{{ e }}</div>{% endfor %}
+    {% include "accounts/_campo.html" with campo=form.rut_company %}
+    {% include "accounts/_campo.html" with campo=form.name_company %}
+    <button type="submit" class="btn btn-nv btn-lg w-100 mt-2">Crear cuenta</button>
+  </section>
 </form>
-<p><a href="{% url 'login' %}">Ya tengo cuenta</a></p>
+<p class="auth-pie">¿Ya tienes una cuenta? <a href="{% url 'login' %}">Inicia sesión</a></p>
 {% endblock %}
+
+{% block scripts %}<script src="{% static 'js/auth.js' %}"></script>{% endblock %}

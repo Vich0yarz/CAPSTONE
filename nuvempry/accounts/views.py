@@ -1,11 +1,12 @@
 from django.contrib import messages
-from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
+from django.core.exceptions import PermissionDenied
 
-from .forms import CambiarRolForm, LoginForm, RegisterForm, TrabajadorForm
+from .forms import (CambiarClaveForm, CambiarRolForm, LoginForm, PerfilForm, RegisterForm, TrabajadorForm)
 from .models import Company, Role, User
 from .permisos import requiere_permiso, solo_anonimos
 
@@ -38,6 +39,9 @@ def logout_view(request):
     return redirect("login")
 
 
+CAMPOS_PASO_1 = ("name_user", "surname_user", "mail_user", "password", "password2")
+
+
 @solo_anonimos
 def register_view(request):
     form = RegisterForm(request.POST or None)
@@ -65,7 +69,14 @@ def register_view(request):
         else:
             messages.success(request, "Cuenta creada. Ya puedes iniciar sesión.")
             return redirect("login")
-    return render(request, "accounts/register.html", {"form": form})
+
+    # Si hubo errores, volver al paso donde está el problema
+    paso_inicial = 1
+    if form.is_bound and form.errors and not any(c in form.errors for c in CAMPOS_PASO_1):
+        paso_inicial = 2
+    return render(
+        request, "accounts/register.html", {"form": form, "paso_inicial": paso_inicial}
+    )
 
 
 @requiere_permiso("crud_user")
@@ -87,23 +98,33 @@ def administracion(request):
         except IntegrityError:
             form.add_error("mail_user", "Este correo ya está registrado.")
         else:
-            messages.success(request, f"Trabajador {d['mail_user']} agregado.")
+            messages.success(request, f"Usuario {d['mail_user']} agregado.")
             return redirect("administracion")
 
+    roles = list(Role.objects.order_by("id_role"))
     usuarios = (
-        User.objects.filter(company=request.user.company)
+        User.objects.filter(company=request.user.company)  # solo SU empresa
         .select_related("role")
-        .order_by("mail_user")
+        .order_by("-is_owner", "name_user", "surname_user")
     )
-    roles = Role.objects.order_by("id_role")
+
+    # Pestañas: ?rol=<id>. Un valor inválido simplemente se ignora (= "Todos")
+    rol_activo = None
+    rol_param = request.GET.get("rol", "")
+    if rol_param.isdigit():
+        rol_activo = next((r for r in roles if r.pk == int(rol_param)), None)
+        if rol_activo:
+            usuarios = usuarios.filter(role=rol_activo)
+
     return render(
         request,
         "accounts/administracion.html",
         {
             "usuarios": usuarios,
             "roles": roles,
+            "rol_activo": rol_activo,
             "form": form,
-            "abrir_form": request.method == "POST",
+            "abrir_form": request.method == "POST",  # reabre la ventana si hubo errores
         },
     )
 
@@ -148,3 +169,53 @@ def cambiar_rol(request):
         objetivo.save(update_fields=["role"])
         messages.success(request, f"Rol de {objetivo.mail_user} actualizado.")
     return redirect("administracion")
+
+
+@login_required
+def configuracion(request):
+    usuario = request.user  # siempre el usuario logueado: nunca se recibe otro desde el navegador
+    accion = request.POST.get("accion")
+
+    form_datos = PerfilForm(
+        request.POST if accion == "datos" else None,
+        initial={"name_user": usuario.name_user, "surname_user": usuario.surname_user},
+    )
+    form_clave = CambiarClaveForm(usuario, request.POST if accion == "clave" else None)
+
+    if request.method == "POST":
+        if accion == "datos" and form_datos.is_valid():
+            usuario.name_user = form_datos.cleaned_data["name_user"]
+            usuario.surname_user = form_datos.cleaned_data["surname_user"]
+            usuario.save(update_fields=["name_user", "surname_user"])
+            messages.success(request, "Tus datos fueron actualizados.")
+            return redirect("configuracion")
+        if accion == "clave" and form_clave.is_valid():
+            usuario.set_password(form_clave.cleaned_data["clave_nueva"])  # Argon2
+            usuario.save(update_fields=["password"])
+            update_session_auth_hash(request, usuario)  # mantiene la sesión abierta
+            messages.success(request, "Tu contraseña fue actualizada.")
+            return redirect("configuracion")
+
+    return render(
+        request,
+        "accounts/configuracion.html",
+        {"form_datos": form_datos, "form_clave": form_clave},
+    )
+
+
+@require_POST
+@login_required
+def eliminar_cuenta(request):
+    usuario = request.user
+    if not usuario.is_owner:
+        raise PermissionDenied  # solo el propietario puede borrar la empresa
+    if not usuario.check_password(request.POST.get("password", "")):
+        messages.error(request, "Contraseña incorrecta. No se eliminó nada.")
+        return redirect("configuracion")
+
+    empresa = usuario.company
+    with transaction.atomic():
+        empresa.delete()  # cascada: usuarios, productos y auditoría de esa empresa
+    logout(request)
+    messages.success(request, "Tu cuenta y tu empresa fueron eliminadas.")
+    return redirect("login")

@@ -1,0 +1,28 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Nuvempry{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'css/nuvempry.css' %}">
+</head>
+<body class="auth-body">
+  {% include "accounts/_iconos.html" %}
+  <main class="auth-card">
+    <section class="auth-form">
+      {% for m in messages %}
+        <div class="alert alert-{{ m.tags }} py-2" role="alert">{{ m }}</div>
+      {% endfor %}
+      {% block content %}{% endblock %}
+    </section>
+    <aside class="auth-panel">
+      <img src="{% static 'img/ilustracion.png' %}" alt="" class="auth-ilustracion">
+      <img src="{% static 'img/logo.png' %}" alt="Nuvempry" class="auth-logo">
+    </aside>
+  </main>
+  <script src="{% static 'vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

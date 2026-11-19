@@ -1,10 +1,38 @@
-{% extends "accounts/base.html" %}
+{% extends "accounts/base_auth.html" %}
+{% load static %}
+{% block titulo %}Iniciar sesión · Nuvempry{% endblock %}
+
 {% block content %}
-<h1>Iniciar sesión</h1>
+<h1 class="auth-titulo">¡Bienvenido!</h1>
+<p class="auth-sub">Ingresa a tu cuenta para continuar.</p>
+
 <form method="post">
   {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Confirmar</button>
+  {% for e in form.non_field_errors %}<div class="alert alert-danger py-2">{{ e }}</div>{% endfor %}
+
+  <div class="campo mb-3 {% if form.mail_user.errors %}tiene-error{% endif %}">
+    <label for="{{ form.mail_user.id_for_label }}" class="nv-label">Correo electrónico</label>
+    <div class="input-wrap">
+      <span class="input-icono"><svg class="ico"><use href="#i-mail"/></svg></span>
+      {{ form.mail_user }}
+    </div>
+    {% for e in form.mail_user.errors %}<div class="nv-error">{{ e }}</div>{% endfor %}
+  </div>
+
+  <div class="campo mb-4 {% if form.password.errors %}tiene-error{% endif %}">
+    <label for="{{ form.password.id_for_label }}" class="nv-label">Contraseña</label>
+    <div class="input-wrap">
+      <span class="input-icono"><svg class="ico"><use href="#i-unlock"/></svg></span>
+      {{ form.password }}
+      <button type="button" class="input-ojo" data-toggle-password="{{ form.password.id_for_label }}"
+              aria-label="Mostrar u ocultar contraseña"><svg class="ico"><use href="#i-eye-off"/></svg></button>
+    </div>
+    {% for e in form.password.errors %}<div class="nv-error">{{ e }}</div>{% endfor %}
+  </div>
+
+  <button type="submit" class="btn btn-nv btn-lg w-100">Iniciar sesión</button>
 </form>
-<p><a href="{% url 'register' %}">Crear cuenta</a></p>
+<p class="auth-pie">¿No tienes cuenta? <a href="{% url 'register' %}">Regístrate</a></p>
 {% endblock %}
+
+{% block scripts %}<script src="{% static 'js/auth.js' %}"></script>{% endblock %}

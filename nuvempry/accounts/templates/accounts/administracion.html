@@ -1,45 +1,136 @@
-{% extends "accounts/base.html" %}
+{% extends "accounts/base_app.html" %}
+{% load static %}
+{% block titulo %}Usuarios · Nuvempry{% endblock %}
+
+{% block encabezado %}
+  <h1 class="pagina-titulo">Lista de usuarios</h1>
+  <p class="pagina-sub">Gestiona los accesos de tu equipo en Nuvempry</p>
+{% endblock %}
+
 {% block content %}
-<h1>Administración de usuarios</h1>
-<p>Empresa: {{ request.user.company.name_company }}</p>
+<div class="barra-acciones">
+  <nav class="tabs-rol" aria-label="Filtrar por rol">
+    <a href="{% url 'administracion' %}" class="{% if not rol_activo %}activo{% endif %}">Todos</a>
+    {% for r in roles %}
+      <a href="{% url 'administracion' %}?rol={{ r.pk }}" class="{% if rol_activo.pk == r.pk %}activo{% endif %}">{{ r.name_role }}</a>
+    {% endfor %}
+  </nav>
+  <button type="button" class="btn btn-nv btn-lg d-inline-flex align-items-center gap-2"
+          data-bs-toggle="modal" data-bs-target="#modal-agregar">
+    <svg class="ico"><use href="#i-plus"/></svg> Agregar Usuario
+  </button>
+</div>
 
-<details {% if abrir_form %}open{% endif %}>
-  <summary><strong>Agregar trabajador</strong></summary>
-  <form method="post" action="{% url 'administracion' %}">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Aceptar</button>
-  </form>
-</details>
+{% for u in usuarios %}
+<article class="tarjeta-usuario">
+  <div class="avatar"><svg class="ico ico-lg"><use href="#i-user"/></svg></div>
+  <div class="usuario-datos">
+    <div class="usuario-nombre">{{ u.name_user }} {{ u.surname_user }}</div>
+    <div class="usuario-correo">{{ u.mail_user }}</div>
+  </div>
 
-<table border="1">
-  <tr><th>Correo</th><th>Rol</th><th>Cambiar rol</th><th>Eliminar</th></tr>
-  {% for u in usuarios %}
-  <tr>
-    <td>{{ u.mail_user }}</td>
-    <td>{{ u.role.name_role }}</td>
-    <td>
-      <form method="post" action="{% url 'cambiar_rol' %}">
+  {% if u.is_owner or u.pk == request.user.pk %}
+    <span class="rol-badge {% if u.role.crud_user %}rol-prop{% endif %}">
+      {% include "accounts/_rol_icono.html" with rol=u.role %} {{ u.role.name_role }}
+    </span>
+  {% else %}
+    <div class="dropdown">
+      <button type="button" class="rol-badge {% if u.role.crud_user %}rol-prop{% endif %}"
+              data-bs-toggle="dropdown" aria-expanded="false">
+        {% include "accounts/_rol_icono.html" with rol=u.role %} {{ u.role.name_role }}
+        <svg class="ico ico-sm"><use href="#i-chevron-down"/></svg>
+      </button>
+      <ul class="dropdown-menu">
+        {% for r in roles %}{% if r.pk != u.role_id %}
+        <li>
+          <button type="button" class="dropdown-item d-flex align-items-center gap-2"
+                  data-accion="rol" data-mail="{{ u.mail_user }}"
+                  data-nombre="{{ u.name_user }} {{ u.surname_user }}"
+                  data-rol-id="{{ r.pk }}" data-rol-nombre="{{ r.name_role }}">
+            {% include "accounts/_rol_icono.html" with rol=r %} {{ r.name_role }}
+          </button>
+        </li>
+        {% endif %}{% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <div class="acciones">
+    {% if not u.is_owner and u.pk != request.user.pk %}
+    <button type="button" class="btn-icono" aria-label="Eliminar usuario"
+            data-accion="eliminar" data-mail="{{ u.mail_user }}"
+            data-nombre="{{ u.name_user }} {{ u.surname_user }}">
+      <svg class="ico ico-lg"><use href="#i-trash"/></svg>
+    </button>
+    {% endif %}
+  </div>
+</article>
+{% empty %}
+  <p class="text-secondary">No hay usuarios con este rol.</p>
+{% endfor %}
+
+<div class="nv-info">
+  <svg class="ico ico-lg"><use href="#i-alert-circle"/></svg>
+  <span>Puedes agregar, editar o eliminar usuarios según las necesidades de tu negocio.</span>
+</div>
+
+<!-- Ventana emergente: confirmar cambio de rol / eliminar (la misma para ambas) -->
+<div class="modal fade" id="modal-confirmar" tabindex="-1" aria-labelledby="confirmar-titulo" aria-hidden="true"
+     data-url-rol="{% url 'cambiar_rol' %}" data-url-eliminar="{% url 'eliminar_usuario' %}">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content nv-modal">
+      <form method="post" id="form-confirmar">
         {% csrf_token %}
-        <input type="hidden" name="mail_user" value="{{ u.mail_user }}">
-        <select name="role">
-          {% for r in roles %}
-            <option value="{{ r.pk }}" {% if r.pk == u.role_id %}selected{% endif %}>{{ r.name_role }}</option>
-          {% endfor %}
-        </select>
-        <button type="submit">Guardar rol</button>
+        <input type="hidden" name="mail_user" id="confirmar-mail">
+        <input type="hidden" name="role" id="confirmar-rol">
+        <div class="modal-body text-center p-4">
+          <h2 class="h4 fw-bold" id="confirmar-titulo"></h2>
+          <p id="confirmar-texto" class="mb-4"></p>
+          <div class="d-flex justify-content-center gap-2">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-nv" id="confirmar-boton"></button>
+          </div>
+        </div>
       </form>
-    </td>
-    <td>
-      <form method="post" action="{% url 'eliminar_usuario' %}"
-            onsubmit="return confirm('¿Eliminar a este usuario?');">
+    </div>
+  </div>
+</div>
+
+<!-- Ventana emergente: agregar usuario (basada en el registro) -->
+<div class="modal fade" id="modal-agregar" tabindex="-1" aria-labelledby="titulo-agregar" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content nv-modal">
+      <form method="post" action="{% url 'administracion' %}">
         {% csrf_token %}
-        <input type="hidden" name="mail_user" value="{{ u.mail_user }}">
-        <button type="submit">Eliminar</button>
+        <div class="modal-header border-0 pb-0">
+          <div>
+            <h2 class="modal-title fw-bold" id="titulo-agregar">Agregar usuario</h2>
+            <p class="text-secondary mb-0">Completa los datos del nuevo integrante de tu equipo.</p>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          {% for e in form.non_field_errors %}<div class="alert alert-danger py-2">{{ e }}</div>{% endfor %}
+          {% include "accounts/_campo.html" with campo=form.name_user %}
+          {% include "accounts/_campo.html" with campo=form.surname_user %}
+          {% include "accounts/_campo.html" with campo=form.mail_user %}
+          {% include "accounts/_campo.html" with campo=form.password %}
+          {% include "accounts/_campo.html" with campo=form.password2 %}
+          {% include "accounts/_campo.html" with campo=form.role %}
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-nv">Agregar usuario</button>
+        </div>
       </form>
-    </td>
-  </tr>
-  {% endfor %}
-</table>
-<p><a href="{% url 'home' %}">Volver</a></p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/usuarios.js' %}"></script>
+{% if abrir_form %}
+<script>new bootstrap.Modal(document.getElementById("modal-agregar")).show();</script>
+{% endif %}
 {% endblock %}

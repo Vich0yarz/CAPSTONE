@@ -1,0 +1,5 @@
+<div class="campo mb-3 {% if campo.errors %}tiene-error{% endif %}">
+  <label for="{{ campo.id_for_label }}" class="nv-label">{{ campo.label }}</label>
+  {{ campo }}
+  {% for e in campo.errors %}<div class="nv-error">{{ e }}</div>{% endfor %}
+</div>

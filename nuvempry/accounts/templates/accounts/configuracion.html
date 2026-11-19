@@ -1,0 +1,72 @@
+{% extends "accounts/base_app.html" %}
+{% block titulo %}Configuración · Nuvempry{% endblock %}
+
+{% block encabezado %}
+  <h1 class="pagina-titulo">Configuración</h1>
+  <p class="pagina-sub">Administra los datos de tu cuenta</p>
+{% endblock %}
+
+{% block content %}
+<section class="tarjeta-config">
+  <h2 class="h5 fw-bold mb-1">Datos personales</h2>
+  <p class="text-secondary mb-3">{{ request.user.company.name_company }} · Rol: {{ request.user.role.name_role }}</p>
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="accion" value="datos">
+    <div class="campo mb-3">
+      <label class="nv-label" for="correo-actual">Correo electrónico</label>
+      <input type="email" id="correo-actual" class="form-control nv-input" value="{{ request.user.mail_user }}" disabled>
+      <div class="form-text ps-3">El correo no se puede cambiar.</div>
+    </div>
+    {% include "accounts/_campo.html" with campo=form_datos.name_user %}
+    {% include "accounts/_campo.html" with campo=form_datos.surname_user %}
+    <button type="submit" class="btn btn-nv">Guardar cambios</button>
+  </form>
+</section>
+
+<section class="tarjeta-config">
+  <h2 class="h5 fw-bold mb-3">Cambiar contraseña</h2>
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="accion" value="clave">
+    {% include "accounts/_campo.html" with campo=form_clave.clave_actual %}
+    {% include "accounts/_campo.html" with campo=form_clave.clave_nueva %}
+    {% include "accounts/_campo.html" with campo=form_clave.clave_nueva2 %}
+    <button type="submit" class="btn btn-nv">Actualizar contraseña</button>
+  </form>
+</section>
+
+{% if request.user.is_owner %}
+<section class="tarjeta-config zona-peligro">
+  <h2 class="h5 fw-bold text-danger mb-2">Eliminar cuenta y empresa</h2>
+  <p>Se eliminarán tu cuenta, la empresa <strong>{{ request.user.company.name_company }}</strong>,
+     todos sus usuarios y todos sus datos. Esta acción no se puede deshacer.</p>
+  <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#modal-eliminar-cuenta">
+    Eliminar cuenta y empresa
+  </button>
+</section>
+
+<div class="modal fade" id="modal-eliminar-cuenta" tabindex="-1" aria-labelledby="titulo-eliminar-cuenta" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content nv-modal">
+      <form method="post" action="{% url 'eliminar_cuenta' %}">
+        {% csrf_token %}
+        <div class="modal-body p-4">
+          <h2 class="h4 fw-bold text-center" id="titulo-eliminar-cuenta">¿Eliminar cuenta y empresa?</h2>
+          <p class="text-center">
+            Se borrarán <strong>{{ request.user.company.name_company }}</strong>, todos sus usuarios y todos sus datos.
+            Para confirmar, escribe tu contraseña.
+          </p>
+          <input type="password" name="password" class="form-control nv-input mb-4" required
+                 placeholder="Tu contraseña" autocomplete="current-password">
+          <div class="d-flex justify-content-center gap-2">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-danger">Sí, eliminar todo</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

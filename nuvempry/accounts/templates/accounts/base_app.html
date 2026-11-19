@@ -1,0 +1,76 @@
+{% load static %}
+<!doctype html>
+<html lang="es" class="app-zoom">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Nuvempry{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'css/nuvempry.css' %}">
+  <script src="{% static 'js/app.js' %}"></script>
+</head>
+<body>
+  {% include "accounts/_iconos.html" %}
+  <div class="app">
+    <aside class="sidebar">
+      <img src="{% static 'img/logo-claro.png' %}" alt="Nuvempry" class="logo">
+      <nav class="nav-nv">
+        <a href="{% url 'administracion' %}" class="{% if request.resolver_match.url_name == 'administracion' %}activo{% endif %}">
+          <svg class="ico"><use href="#i-users"/></svg> Usuarios</a>
+        <a href="{% url 'home' %}"><svg class="ico"><use href="#i-package"/></svg> Inventario</a>
+        <a href="{% url 'home' %}"><svg class="ico"><use href="#i-bar-chart"/></svg> Reportes</a>
+      </nav>
+      <div class="sidebar-pie nav-nv">
+        <form method="post" action="{% url 'logout' %}">
+          {% csrf_token %}
+          <button type="submit"><svg class="ico"><use href="#i-log-out"/></svg> Cerrar sesión</button>
+        </form>
+      </div>
+    </aside>
+
+    <div class="contenido">
+      <header class="encabezado">
+        <div class="encabezado-izq">
+          <button type="button" id="btn-sidebar" class="btn-icono btn-sidebar"
+                  aria-label="Mostrar u ocultar el menú lateral" aria-expanded="true">
+            <svg class="ico ico-lg"><use href="#i-menu"/></svg>
+          </button>
+          <div>{% block encabezado %}{% endblock %}</div>
+        </div>
+        <div class="dropdown">
+          <button type="button" class="usuario-menu" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="avatar avatar-sm"><svg class="ico"><use href="#i-user"/></svg></span>
+            <span class="nombre">{{ request.user.name_user }} {{ request.user.surname_user }}</span>
+            <svg class="ico ico-sm"><use href="#i-chevron-down"/></svg>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li>
+              <a class="dropdown-item d-flex align-items-center gap-2" href="{% url 'configuracion' %}">
+                <svg class="ico ico-sm"><use href="#i-settings"/></svg> Configuración</a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+              <form method="post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="dropdown-item d-flex align-items-center gap-2">
+                  <svg class="ico ico-sm"><use href="#i-log-out"/></svg> Cerrar sesión</button>
+              </form>
+            </li>
+          </ul>
+        </div>
+      </header>
+
+      {% for m in messages %}
+        <div class="alert alert-{{ m.tags }} alert-dismissible fade show" role="alert">
+          {{ m }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+        </div>
+      {% endfor %}
+
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+  <script src="{% static 'vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -10,4 +10,6 @@ urlpatterns = [
     path("administracion/", views.administracion, name="administracion"),
     path("administracion/eliminar/", views.eliminar_usuario, name="eliminar_usuario"),
     path("administracion/rol/", views.cambiar_rol, name="cambiar_rol"),
+    path("configuracion/", views.configuracion, name="configuracion"),
+    path("configuracion/eliminar/", views.eliminar_cuenta, name="eliminar_cuenta"),
 ]
