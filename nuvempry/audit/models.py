@@ -2,6 +2,26 @@ from django.db import models
 
 
 class Audit(models.Model):
+    PRODUCT_CREATED = "PRODUCT_CREATED"
+    PRODUCT_UPDATED = "PRODUCT_UPDATED"
+    PRODUCT_DELETED = "PRODUCT_DELETED"
+    SUBPRODUCT_CREATED = "SUBPRODUCT_CREATED"
+    SUBPRODUCT_UPDATED = "SUBPRODUCT_UPDATED"
+    SUBPRODUCT_DELETED = "SUBPRODUCT_DELETED"
+
+    EVENTOS = {
+        PRODUCT_CREATED: "Producto creado",
+        PRODUCT_UPDATED: "Producto editado",
+        PRODUCT_DELETED: "Producto eliminado",
+        SUBPRODUCT_CREATED: "Subproducto creado",
+        SUBPRODUCT_UPDATED: "Subproducto editado",
+        SUBPRODUCT_DELETED: "Subproducto eliminado",
+    }
+
+    @property
+    def evento_legible(self):
+        return self.EVENTOS.get(self.event_type, self.event_type)
+
     id_audit = models.AutoField(primary_key=True)
     company = models.ForeignKey(
         "accounts.Company", on_delete=models.CASCADE, db_column="rut_company"

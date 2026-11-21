@@ -1,0 +1,76 @@
+{% extends "accounts/base_app.html" %}
+{% block titulo %}Inventario · Nuvempry{% endblock %}
+
+{% block encabezado %}
+  <h1 class="pagina-titulo">Inventario</h1>
+{% endblock %}
+
+{% block content %}
+{% if puede_editar %}
+<details {% if abrir_form %}open{% endif %}>
+  <summary><strong>Agregar nuevo producto</strong></summary>
+  <form method="post" action="{% url 'inventario' %}">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Confirmar</button>
+  </form>
+</details>
+<hr>
+{% endif %}
+
+<table border="1" cellpadding="6">
+  <tr>
+    <th>ID</th><th>Nombre</th><th>Categoría</th><th>Detalle</th>
+    <th>Precio (CLP)</th><th>Stock</th><th>SKU</th>
+    {% if puede_editar %}<th>Acciones</th>{% endif %}
+  </tr>
+  {% for p in productos %}
+  <tr>
+    <td>{{ p.pk }}</td>
+    <td><strong>{{ p.name_item }}</strong></td>
+    <td>{{ p.category|default:"—" }}</td>
+    <td>{{ p.detail|default:"—" }}</td>
+    <td>{{ p.price|default_if_none:"—" }}</td>
+    <td>{{ p.stock }}</td>
+    <td>{{ p.code_sku|default:"—" }}</td>
+    {% if puede_editar %}
+    <td>
+      <form method="get" action="{% url 'editar_producto' p.pk %}" style="display:inline">
+        <button type="submit">Editar</button>
+      </form>
+      <form method="post" action="{% url 'eliminar_producto' p.pk %}" style="display:inline"
+            onsubmit="return confirm('¿Eliminar este producto{% if p.subproducts.all %} y sus subproductos{% endif %}?');">
+        {% csrf_token %}
+        <button type="submit">Eliminar</button>
+      </form>
+    </td>
+    {% endif %}
+  </tr>
+  {% for s in p.subproducts.all %}
+  <tr>
+    <td>{{ s.pk }} (sub de {{ p.pk }})</td>
+    <td>↳ {{ s.name_item }}</td>
+    <td>{{ s.category|default:"—" }}</td>
+    <td>{{ s.detail|default:"—" }}</td>
+    <td>{{ s.price|default_if_none:"—" }}</td>
+    <td>{{ s.stock }}</td>
+    <td>{{ s.code_sku }}</td>
+    {% if puede_editar %}
+    <td>
+      <form method="get" action="{% url 'editar_producto' s.pk %}" style="display:inline">
+        <button type="submit">Editar</button>
+      </form>
+      <form method="post" action="{% url 'eliminar_producto' s.pk %}" style="display:inline"
+            onsubmit="return confirm('¿Eliminar este subproducto?');">
+        {% csrf_token %}
+        <button type="submit">Eliminar</button>
+      </form>
+    </td>
+    {% endif %}
+  </tr>
+  {% endfor %}
+  {% empty %}
+  <tr><td colspan="8">Aún no hay productos.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

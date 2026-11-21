@@ -14,10 +14,13 @@
   <div class="app">
     <aside class="sidebar">
       <img src="{% static 'img/logo-claro.png' %}" alt="Nuvempry" class="logo">
-      <nav class="nav-nv">
+            <nav class="nav-nv">
         <a href="{% url 'administracion' %}" class="{% if request.resolver_match.url_name == 'administracion' %}activo{% endif %}">
           <svg class="ico"><use href="#i-users"/></svg> Usuarios</a>
-        <a href="{% url 'home' %}"><svg class="ico"><use href="#i-package"/></svg> Inventario</a>
+        <a href="{% url 'inventario' %}" class="{% if '/inventario/' in request.path %}activo{% endif %}">
+          <svg class="ico"><use href="#i-package"/></svg> Inventario</a>
+        <a href="{% url 'auditoria' %}" class="{% if '/auditoria/' in request.path %}activo{% endif %}">
+          <svg class="ico"><use href="#i-file-text"/></svg> Auditoría</a>
         <a href="{% url 'home' %}"><svg class="ico"><use href="#i-bar-chart"/></svg> Reportes</a>
       </nav>
       <div class="sidebar-pie nav-nv">

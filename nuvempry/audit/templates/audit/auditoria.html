@@ -1,0 +1,28 @@
+{% extends "accounts/base_app.html" %}
+{% block titulo %}Auditoría · Nuvempry{% endblock %}
+
+{% block encabezado %}
+  <h1 class="pagina-titulo">Auditoría</h1>
+  <p class="pagina-sub">Últimos 200 eventos de tu empresa, del más reciente al más antiguo</p>
+{% endblock %}
+
+{% block content %}
+<table border="1" cellpadding="6">
+  <tr>
+    <th>Fecha</th><th>Evento</th><th>Involucrado</th>
+    <th>Cantidad movida</th><th>Stock previo</th><th>Usuario</th>
+  </tr>
+  {% for a in eventos %}
+  <tr>
+    <td>{{ a.date_time|date:"d-m-Y H:i:s" }}</td>
+    <td>{{ a.evento_legible }}</td>
+    <td>{{ a.involved }}</td>
+    <td>{% if a.move_quantity is not None %}{{ a.move_quantity|stringformat:"+d" }}{% else %}—{% endif %}</td>
+    <td>{{ a.past_count|default_if_none:"—" }}</td>
+    <td>{{ a.user_mail }}</td>
+  </tr>
+  {% empty %}
+  <tr><td colspan="6">Aún no hay eventos.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}
