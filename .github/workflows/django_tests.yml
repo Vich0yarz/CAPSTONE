@@ -10,7 +10,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    # Define la carpeta por defecto donde se ejecutarán los comandos
     defaults:
       run:
         working-directory: ./nuvempry
@@ -35,5 +34,6 @@ jobs:
         env:
           SECRET_KEY: 'clave-secreta-temporal-solo-para-tests'
           DEBUG: 'True'
+          DATABASE_URL: 'sqlite:///db.sqlite3'
         run: |
           python manage.py test
