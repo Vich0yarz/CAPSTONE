@@ -40,14 +40,14 @@ class PaginaTests(InventarioBase):
         self.sub(padre)
         r = self.client.get(reverse("inventario"))
         self.assertContains(r, "Camisa")
-        self.assertContains(r, "Agregar producto")
+        self.assertContains(r, "Nuevo producto")
         self.assertNotContains(r, "nv-card-sku")  # los productos normales no muestran SKU
         self.assertEqual(len(r.context["productos"]), 1)  # el subproducto no es una tarjeta aparte
 
     def test_lector_no_ve_el_boton_agregar(self):
         self.producto()
         self.client.force_login(self.crear("lector@a.cl", "Lector"))
-        self.assertNotContains(self.client.get(reverse("inventario")), "Agregar producto")
+        self.assertNotContains(self.client.get(reverse("inventario")), "Nuevo producto")
 
     def test_busqueda_por_nombre(self):
         self.producto("Camisa")
