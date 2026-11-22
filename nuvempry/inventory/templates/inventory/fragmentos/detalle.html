@@ -1,0 +1,65 @@
+<div class="modal-header border-0 pb-0">
+  <div>
+    <h2 class="modal-title fw-bold h3">{{ item.name_item }}</h2>
+    <p class="text-secondary mb-0">{{ item.category|default:"Sin categoría" }}{% if es_sub %} · SKU {{ item.code_sku }}{% endif %}</p>
+  </div>
+  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+</div>
+
+<div class="modal-body">
+  {% if es_sub %}
+  <button type="button" 
+          class="btn btn-sm fw-medium rounded-2 px-3 py-1 mb-3 d-inline-flex align-items-center gap-2"
+          style="background-color: #F3EFFE; color: #7962D9; border: 1px solid #D8CEFA;"
+          data-modal-url="{% url 'producto_detalle' item.parent_id %}">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <use href="#i-arrow-left"/>
+    </svg>
+    <span>Volver a {{ item.parent.name_item }}</span>
+  </button>
+  {% endif %}
+
+  <div class="mb-3">{% include "inventory/_imagen_producto.html" %}</div>
+
+  <dl class="row mb-0">
+    {% if es_sub %}<dt class="col-sm-3">SKU</dt><dd class="col-sm-9">{{ item.code_sku }}</dd>{% endif %}
+    <dt class="col-sm-3">Categoría</dt><dd class="col-sm-9">{{ item.category|default:"—" }}</dd>
+    <dt class="col-sm-3">Precio</dt>
+    <dd class="col-sm-9">{% if item.price is not None %}${{ item.price|floatformat:"0g" }}{% else %}—{% endif %}</dd>
+    <dt class="col-sm-3">Stock</dt>
+    <dd class="col-sm-9">{{ item.stock }} {% if item.stock == 1 %}unidad{% else %}unidades{% endif %}</dd>
+    <dt class="col-sm-3">Detalle</dt><dd class="col-sm-9">{{ item.detail|default:"—" }}</dd>
+  </dl>
+
+  {% if not es_sub %}
+  <hr>
+  <h3 class="h5 fw-bold mb-3">Subproductos</h3>
+  {% if subs %}
+  <div class="row row-cols-1 row-cols-sm-2 g-3">
+    {% for p in subs %}
+      <div class="col">
+        {% include "inventory/_card_producto.html" with es_sub=True %}
+      </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-secondary mb-0">Este producto no tiene subproductos.</p>
+  {% endif %}
+  {% endif %}
+</div>
+
+{% if puede_editar %}
+<div class="modal-footer border-0 justify-content-between">
+  <button type="button" class="btn btn-outline-danger" data-modal-url="{% url 'eliminar_producto' item.pk %}">Eliminar</button>
+  <div class="d-flex gap-2">
+    {% if not es_sub %}
+    <button type="button" class="btn btn-nv-borde" 
+            style="background-color: #F3EFFE; color: #7962D9; border-color: #D8CEFA;"
+            data-modal-url="{% url 'subproducto_nuevo' item.pk %}">
+      Agregar subproducto
+    </button>
+    {% endif %}
+    <button type="button" class="btn btn-nv" data-modal-url="{% url 'editar_producto' item.pk %}">Editar</button>
+  </div>
+</div>
+{% endif %}

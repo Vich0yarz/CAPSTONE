@@ -8,6 +8,10 @@ from audit.models import Audit
 from .models import Item
 
 
+def es_json(r):
+    return "application/json" in r["Content-Type"]
+
+
 class InventarioBase(Base):
     def setUp(self):
         self.dueno = self.crear("dueno@a.cl", "Propietario", owner=True)
@@ -26,10 +30,55 @@ class InventarioBase(Base):
         )
 
 
+class PaginaTests(InventarioBase):
+    def nombres(self, **params):
+        r = self.client.get(reverse("inventario"), params)
+        return [p.name_item for p in r.context["productos"]]
+
+    def test_tarjetas_de_productos_sin_sku_ni_subproductos(self):
+        padre = self.producto("Camisa", category="Ropa", price=7990)
+        self.sub(padre)
+        r = self.client.get(reverse("inventario"))
+        self.assertContains(r, "Camisa")
+        self.assertContains(r, "Agregar producto")
+        self.assertNotContains(r, "nv-card-sku")  # los productos normales no muestran SKU
+        self.assertEqual(len(r.context["productos"]), 1)  # el subproducto no es una tarjeta aparte
+
+    def test_lector_no_ve_el_boton_agregar(self):
+        self.producto()
+        self.client.force_login(self.crear("lector@a.cl", "Lector"))
+        self.assertNotContains(self.client.get(reverse("inventario")), "Agregar producto")
+
+    def test_busqueda_por_nombre(self):
+        self.producto("Camisa")
+        self.producto("Pantalón")
+        self.assertEqual(self.nombres(q="cam"), ["Camisa"])
+        self.assertEqual(self.nombres(q="CAM"), ["Camisa"])
+        r = self.client.get(reverse("inventario"), {"q": "xyz"})
+        self.assertContains(r, "No hay productos que coincidan")
+
+    def test_ordenes(self):
+        self.producto("banana", stock=5, category="Fruta", price=300)
+        self.producto("Zapato", stock=1, category="Calzado", price=None)
+        self.producto("Cereal", stock=9, category=None, price=100)
+        self.assertEqual(self.nombres(), ["banana", "Cereal", "Zapato"])  # sin distinguir mayúsculas
+        self.assertEqual(self.nombres(orden="nombre", dir="desc"), ["Zapato", "Cereal", "banana"])
+        self.assertEqual(self.nombres(orden="categoria"), ["Zapato", "banana", "Cereal"])  # sin categoría al final
+        self.assertEqual(self.nombres(orden="unidades", dir="desc"), ["Cereal", "banana", "Zapato"])
+        self.assertEqual(self.nombres(orden="precio"), ["Cereal", "banana", "Zapato"])  # sin precio al final
+        self.assertEqual(self.nombres(orden="precio", dir="desc"), ["banana", "Cereal", "Zapato"])
+
+    def test_parametros_de_orden_invalidos_se_ignoran(self):
+        self.producto("Camisa")
+        r = self.client.get(reverse("inventario"), {"orden": "hack", "dir": "lado"})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self.nombres(orden="hack"), ["Camisa"])
+
+
 class CrearProductoTests(InventarioBase):
     def test_crea_con_datos_obligatorios_y_audita(self):
-        r = self.client.post(reverse("inventario"), {"name_item": "Camisa", "stock": 10})
-        self.assertRedirects(r, reverse("inventario"))
+        r = self.client.post(reverse("producto_nuevo"), {"name_item": "Camisa", "stock": 10})
+        self.assertEqual(r.json(), {"ok": True, "ver": None})
         p = Item.objects.get(name_item="Camisa")
         self.assertEqual((p.company, p.stock, p.category, p.detail, p.price),
                          (self.empresa, 10, None, None, None))
@@ -39,7 +88,7 @@ class CrearProductoTests(InventarioBase):
                          (10, 0, "dueno@a.cl", self.empresa))
 
     def test_crea_con_opcionales_y_precio(self):
-        self.client.post(reverse("inventario"), {
+        self.client.post(reverse("producto_nuevo"), {
             "name_item": "Polera", "stock": 5, "category": "Ropa",
             "detail": "Algodón", "price": 7990,
         })
@@ -57,15 +106,16 @@ class CrearProductoTests(InventarioBase):
             {"name_item": "X"},
         ]
         for datos in invalidos:
-            r = self.client.post(reverse("inventario"), datos)
+            r = self.client.post(reverse("producto_nuevo"), datos)
             self.assertEqual(r.status_code, 200, datos)
+            self.assertFalse(es_json(r), datos)  # vuelve el formulario con errores
         self.assertFalse(Item.objects.exists())
         self.assertFalse(Audit.objects.exists())
 
     def test_si_falla_la_auditoria_no_se_crea_el_producto(self):
         with mock.patch("inventory.services._registrar", side_effect=RuntimeError("fallo")):
             with self.assertRaises(RuntimeError):
-                self.client.post(reverse("inventario"), {"name_item": "X", "stock": 1})
+                self.client.post(reverse("producto_nuevo"), {"name_item": "X", "stock": 1})
         self.assertFalse(Item.objects.exists())
 
 
@@ -80,7 +130,8 @@ class PermisosTests(InventarioBase):
         for rol in ("Operativo", "Lector"):
             self.client.force_login(self.crear(f"{rol.lower()}@a.cl", rol))
             self.assertEqual(self.client.get(reverse("inventario")).status_code, 200)
-            r = self.client.post(reverse("inventario"), {"name_item": "Z", "stock": 1})
+            self.assertEqual(self.client.get(reverse("producto_detalle", args=[p.pk])).status_code, 200)
+            r = self.client.post(reverse("producto_nuevo"), {"name_item": "Z", "stock": 1})
             self.assertEqual(r.status_code, 403)
             self.assertEqual(self.client.get(reverse("editar_producto", args=[p.pk])).status_code, 403)
             self.assertEqual(self.client.post(reverse("eliminar_producto", args=[p.pk])).status_code, 403)
@@ -88,16 +139,41 @@ class PermisosTests(InventarioBase):
         self.assertEqual(Item.objects.count(), 1)
         self.assertFalse(Audit.objects.exists())
 
+    def test_lector_ve_el_detalle_sin_botones_de_edicion(self):
+        p = self.producto()
+        self.client.force_login(self.crear("lector@a.cl", "Lector"))
+        r = self.client.get(reverse("producto_detalle", args=[p.pk]))
+        self.assertNotContains(r, reverse("editar_producto", args=[p.pk]))
+        self.assertNotContains(r, reverse("eliminar_producto", args=[p.pk]))
+
 
 class AislamientoTests(InventarioBase):
     def test_listado_y_acceso_cruzado(self):
         ajeno = self.crear("otro@b.cl", "Propietario", rut=22222222, dv="2", owner=True)
         ajeno_item = self.producto("Secreto", empresa=ajeno.company)
         self.assertNotContains(self.client.get(reverse("inventario")), "Secreto")
-        self.assertEqual(self.client.get(reverse("editar_producto", args=[ajeno_item.pk])).status_code, 404)
+        for nombre in ("producto_detalle", "editar_producto", "eliminar_producto", "subproducto_nuevo"):
+            self.assertEqual(self.client.get(reverse(nombre, args=[ajeno_item.pk])).status_code, 404, nombre)
         self.assertEqual(self.client.post(reverse("eliminar_producto", args=[ajeno_item.pk])).status_code, 404)
-        self.assertEqual(self.client.get(reverse("subproducto_nuevo", args=[ajeno_item.pk])).status_code, 404)
         self.assertTrue(Item.objects.filter(pk=ajeno_item.pk).exists())
+
+
+class DetalleTests(InventarioBase):
+    def test_detalle_muestra_datos_botones_y_subproductos_con_su_sku(self):
+        padre = self.producto("Camisa", price=1000, detail="Algodón")
+        self.sub(padre, sku="CAM-0001")
+        r = self.client.get(reverse("producto_detalle", args=[padre.pk]))
+        self.assertContains(r, "Algodón")
+        self.assertContains(r, "CAM-0001")
+        self.assertContains(r, "nv-card-sku")
+        self.assertContains(r, reverse("editar_producto", args=[padre.pk]))
+
+    def test_detalle_de_subproducto_tiene_boton_volver_y_no_permite_sub_de_sub(self):
+        padre = self.producto("Camisa")
+        s = self.sub(padre)
+        r = self.client.get(reverse("producto_detalle", args=[s.pk]))
+        self.assertContains(r, reverse("producto_detalle", args=[padre.pk]))
+        self.assertNotContains(r, reverse("subproducto_nuevo", args=[s.pk]))
 
 
 class EditarTests(InventarioBase):
@@ -106,7 +182,7 @@ class EditarTests(InventarioBase):
         r = self.client.post(reverse("editar_producto", args=[p.pk]), {
             "name_item": "Camisa roja", "category": "Ropa", "detail": "", "price": 1500,
         })
-        self.assertRedirects(r, reverse("inventario"))
+        self.assertEqual(r.json(), {"ok": True, "ver": p.pk})
         p.refresh_from_db()
         self.assertEqual((p.name_item, p.category, p.price), ("Camisa roja", "Ropa", 1500))
         a = Audit.objects.get()
@@ -138,7 +214,7 @@ class SubproductoTests(InventarioBase):
         self.assertContains(r, "CAM-0001")  # normalizado a mayúsculas
         r = self.client.post(url, {"accion": "crear", "code_sku": "CAM-0001",
                                    "stock": 3, "detail": "Talla M"})
-        self.assertRedirects(r, reverse("inventario"))
+        self.assertEqual(r.json(), {"ok": True, "ver": padre.pk})
         s = Item.objects.get(code_sku="CAM-0001")
         self.assertEqual((s.parent, s.name_item, s.category, s.price, s.stock, s.detail),
                          (padre, "Camisa", "Ropa", 1000, 3, "Talla M"))
@@ -158,6 +234,7 @@ class SubproductoTests(InventarioBase):
         self.assertEqual(r.context["paso"], 1)
         r = self.client.post(url, {"accion": "crear", "code_sku": "CAM-0001", "stock": 1})
         self.assertEqual(r.status_code, 200)
+        self.assertFalse(es_json(r))
         self.assertEqual(Item.objects.filter(code_sku="CAM-0001").count(), 1)
 
     def test_mismo_sku_en_otra_empresa_si_se_permite(self):
@@ -166,7 +243,7 @@ class SubproductoTests(InventarioBase):
         padre = self.producto("Camisa")
         r = self.client.post(reverse("subproducto_nuevo", args=[padre.pk]),
                              {"accion": "crear", "code_sku": "CAM-0001", "stock": 1})
-        self.assertRedirects(r, reverse("inventario"))
+        self.assertTrue(r.json()["ok"])
 
     def test_no_existen_subproductos_de_subproductos(self):
         s = self.sub(self.producto("Camisa"))
@@ -197,7 +274,7 @@ class EliminarTests(InventarioBase):
     def test_elimina_y_audita(self):
         p = self.producto(stock=7)
         r = self.client.post(reverse("eliminar_producto", args=[p.pk]))
-        self.assertRedirects(r, reverse("inventario"))
+        self.assertEqual(r.json(), {"ok": True, "ver": None})
         self.assertFalse(Item.objects.exists())
         a = Audit.objects.get()
         self.assertEqual((a.event_type, a.move_quantity, a.past_count),
@@ -212,17 +289,18 @@ class EliminarTests(InventarioBase):
         e = Audit.objects.get(event_type=Audit.SUBPRODUCT_DELETED)
         self.assertEqual((e.move_quantity, e.past_count), (-2, 2))
 
-    def test_eliminar_un_subproducto_no_toca_al_padre(self):
+    def test_eliminar_un_subproducto_no_toca_al_padre_y_reabre_el_original(self):
         padre = self.producto()
         s = self.sub(padre)
-        self.client.post(reverse("eliminar_producto", args=[s.pk]))
+        r = self.client.post(reverse("eliminar_producto", args=[s.pk]))
+        self.assertEqual(r.json(), {"ok": True, "ver": padre.pk})
         self.assertTrue(Item.objects.filter(pk=padre.pk).exists())
         self.assertFalse(Item.objects.filter(pk=s.pk).exists())
 
 
 class AuditoriaTests(InventarioBase):
     def test_solo_el_propietario_ve_la_auditoria_de_su_empresa(self):
-        self.client.post(reverse("inventario"), {"name_item": "Camisa", "stock": 4})
+        self.client.post(reverse("producto_nuevo"), {"name_item": "Camisa", "stock": 4})
         ajeno = self.crear("otro@b.cl", "Propietario", rut=22222222, dv="2", owner=True)
         Audit.objects.create(company=ajeno.company, event_type=Audit.PRODUCT_CREATED,
                              involved="Secreto", user_mail="otro@b.cl")

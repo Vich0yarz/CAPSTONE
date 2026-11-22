@@ -1,76 +1,159 @@
 {% extends "accounts/base_app.html" %}
+{% load static %}
 {% block titulo %}Inventario · Nuvempry{% endblock %}
 
 {% block encabezado %}
   <h1 class="pagina-titulo">Inventario</h1>
+  <p class="pagina-sub">Gestiona los productos y el stock de tu negocio</p>
 {% endblock %}
 
 {% block content %}
-{% if puede_editar %}
-<details {% if abrir_form %}open{% endif %}>
-  <summary><strong>Agregar nuevo producto</strong></summary>
-  <form method="post" action="{% url 'inventario' %}">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Confirmar</button>
-  </form>
-</details>
-<hr>
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-stretch gap-3 mb-4">
+  
+  <!-- Contenedor unificado para Búsqueda y Filtro (sin max-width para llegar hasta el botón Nuevo producto) -->
+  <div class="bg-white border border-light-subtle rounded-3 shadow-sm p-2 d-flex flex-column flex-md-row align-items-stretch align-items-md-center gap-2 flex-grow-1">
+    
+    <!-- Formulario de búsqueda -->
+    <form method="get" class="d-flex align-items-center gap-2 flex-grow-1 m-0">
+      <input type="hidden" name="orden" value="{{ orden }}">
+      <input type="hidden" name="dir" value="{{ direccion }}">
+      
+      <!-- Campo de texto con icono lupa y botón limpiar (X) integrado -->
+      <div class="position-relative flex-grow-1">
+        <span class="position-absolute top-50 start-0 translate-middle-y ms-3 text-secondary pe-none">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <use href="#i-search"/>
+          </svg>
+        </span>
+        
+        <input type="search" 
+               name="q" 
+               value="{{ q }}" 
+               class="form-control bg-light border-0 rounded-2 ps-5 {% if q %}pe-5{% endif %}" 
+               placeholder="Buscar producto por nombre...">
+        
+        {% if q %}
+        <a href="?orden={{ orden }}&amp;dir={{ direccion }}" 
+           class="btn btn-sm position-absolute top-50 end-0 translate-middle-y me-1 text-secondary d-flex align-items-center justify-content-center rounded-circle"
+           style="width: 26px; height: 26px;"
+           title="Limpiar búsqueda" 
+           aria-label="Limpiar búsqueda">
+          &#10005;
+        </a>
+        {% endif %}
+      </div>
+
+      <button type="submit" 
+              class="btn fw-medium px-3 rounded-2"
+              style="background-color: #7962D9; color: #ffffff; border: 1px solid #7962D9;">
+        Buscar
+      </button>
+    </form>
+
+    <!-- Separador vertical en escritorio -->
+    <div class="vr d-none d-md-block text-secondary opacity-25 my-1"></div>
+
+    <!-- Grupo: Selector de Filtro + Botón Ascendente/Descendente -->
+    <div class="d-flex align-items-center gap-1">
+      
+      <!-- Dropdown con los 4 criterios (usando o.url y solo o.etiqueta) -->
+      <div class="dropdown flex-grow-1">
+        <button type="button" 
+                class="btn w-100 d-inline-flex align-items-center justify-content-between gap-2 fw-medium px-3 rounded-2"
+                style="background-color: #F3EFFE; color: #7962D9; border: 1px solid #D8CEFA;"
+                data-bs-toggle="dropdown" aria-expanded="false">
+          <span class="d-inline-flex align-items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <use href="#i-filter"/>
+            </svg>
+            <span>
+              {% for o in opciones %}{% if o.activo %}{{ o.etiqueta }}{% endif %}{% endfor %}
+            </span>
+          </span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <use href="#i-chevron-down"/>
+          </svg>
+        </button>
+
+        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-light-subtle rounded-3 mt-1">
+          {% for o in opciones %}
+          <li>
+            <a class="dropdown-item d-flex justify-content-between align-items-center gap-3 py-2 {% if o.activo %}active{% endif %}" 
+               {% if o.activo %}style="background-color: #7962D9;"{% endif %}
+               href="{{ o.url }}">
+              <span>{{ o.etiqueta }}</span>
+              {% if o.activo %}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <use href="#i-check"/>
+              </svg>
+              {% endif %}
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+
+      <!-- Botón alternador Ascendente (↑) / Descendente (↓) -->
+      <a href="?orden={{ orden }}&amp;dir={% if direccion == 'asc' %}desc{% else %}asc{% endif %}{% if q %}&amp;q={{ q|urlencode }}{% endif %}"
+         class="btn d-inline-flex align-items-center justify-content-center gap-2 rounded-2 px-3 fw-medium text-nowrap"
+         style="background-color: #F3EFFE; color: #7962D9; border: 1px solid #D8CEFA; height: 38px;"
+         title="Cambiar dirección de orden"
+         aria-label="Cambiar dirección de orden">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          {% if direccion == 'asc' %}
+            <use href="#i-arrow-up"/>
+          {% else %}
+            <use href="#i-arrow-down"/>
+          {% endif %}
+        </svg>
+        <span class="small">
+          {% if orden == 'nombre' or orden == 'categoria' %}
+            {% if direccion == 'asc' %}A → Z{% else %}Z → A{% endif %}
+          {% else %}
+            {% if direccion == 'asc' %}Menor a mayor{% else %}Mayor a menor{% endif %}
+          {% endif %}
+        </span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Acción Principal: Nuevo Producto -->
+  {% if puede_editar %}
+  <button type="button" 
+          class="btn btn-lg rounded-3 shadow-sm fw-semibold px-4 d-inline-flex align-items-center justify-content-center gap-2 text-nowrap"
+          style="background-color: #7962D9; border-color: #7962D9; color: #ffffff;"
+          data-modal-url="{% url 'producto_nuevo' %}">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <use href="#i-plus"/>
+    </svg>
+    <span>Nuevo producto</span>
+  </button>
+  {% endif %}
+</div>
+
+{% if productos %}
+<div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
+  {% for p in productos %}
+    <div class="col">
+      {% include "inventory/_card_producto.html" with es_sub=False %}
+    </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-secondary">
+  {% if q %}No hay productos que coincidan con «{{ q }}».
+  {% elif puede_editar %}Aún no hay productos. Agrega el primero con «Agregar producto».
+  {% else %}Aún no hay productos.{% endif %}
+</p>
 {% endif %}
 
-<table border="1" cellpadding="6">
-  <tr>
-    <th>ID</th><th>Nombre</th><th>Categoría</th><th>Detalle</th>
-    <th>Precio (CLP)</th><th>Stock</th><th>SKU</th>
-    {% if puede_editar %}<th>Acciones</th>{% endif %}
-  </tr>
-  {% for p in productos %}
-  <tr>
-    <td>{{ p.pk }}</td>
-    <td><strong>{{ p.name_item }}</strong></td>
-    <td>{{ p.category|default:"—" }}</td>
-    <td>{{ p.detail|default:"—" }}</td>
-    <td>{{ p.price|default_if_none:"—" }}</td>
-    <td>{{ p.stock }}</td>
-    <td>{{ p.code_sku|default:"—" }}</td>
-    {% if puede_editar %}
-    <td>
-      <form method="get" action="{% url 'editar_producto' p.pk %}" style="display:inline">
-        <button type="submit">Editar</button>
-      </form>
-      <form method="post" action="{% url 'eliminar_producto' p.pk %}" style="display:inline"
-            onsubmit="return confirm('¿Eliminar este producto{% if p.subproducts.all %} y sus subproductos{% endif %}?');">
-        {% csrf_token %}
-        <button type="submit">Eliminar</button>
-      </form>
-    </td>
-    {% endif %}
-  </tr>
-  {% for s in p.subproducts.all %}
-  <tr>
-    <td>{{ s.pk }} (sub de {{ p.pk }})</td>
-    <td>↳ {{ s.name_item }}</td>
-    <td>{{ s.category|default:"—" }}</td>
-    <td>{{ s.detail|default:"—" }}</td>
-    <td>{{ s.price|default_if_none:"—" }}</td>
-    <td>{{ s.stock }}</td>
-    <td>{{ s.code_sku }}</td>
-    {% if puede_editar %}
-    <td>
-      <form method="get" action="{% url 'editar_producto' s.pk %}" style="display:inline">
-        <button type="submit">Editar</button>
-      </form>
-      <form method="post" action="{% url 'eliminar_producto' s.pk %}" style="display:inline"
-            onsubmit="return confirm('¿Eliminar este subproducto?');">
-        {% csrf_token %}
-        <button type="submit">Eliminar</button>
-      </form>
-    </td>
-    {% endif %}
-  </tr>
-  {% endfor %}
-  {% empty %}
-  <tr><td colspan="8">Aún no hay productos.</td></tr>
-  {% endfor %}
-</table>
+<!-- Única ventana emergente: su contenido lo carga inventario.js -->
+<div class="modal fade" id="modal-producto" tabindex="-1" aria-hidden="true"
+     data-url-detalle="{% url 'producto_detalle' 0 %}">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content nv-modal" id="modal-contenido"></div>
+  </div>
+</div>
 {% endblock %}
+
+{% block scripts %}<script src="{% static 'js/inventario.js' %}"></script>{% endblock %}

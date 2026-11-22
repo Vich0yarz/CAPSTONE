@@ -1,0 +1,27 @@
+<form method="post" action="{% url 'editar_producto' item.pk %}" data-modal-form>
+  {% csrf_token %}
+  <div class="modal-header border-0 pb-0">
+    <div>
+      <h2 class="modal-title fw-bold h4">Editar {% if es_sub %}subproducto{% else %}producto{% endif %}</h2>
+      {% if es_sub %}<p class="text-secondary mb-0">SKU {{ item.code_sku }}</p>{% endif %}
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+  </div>
+  <div class="modal-body">
+    {% for e in form.non_field_errors %}<div class="alert alert-danger py-2">{{ e }}</div>{% endfor %}
+    {% if es_sub %}
+      <p class="text-secondary">Nombre, categoría y precio se heredan del producto original y se editan desde él.</p>
+      {% include "accounts/_campo.html" with campo=form.detail %}
+    {% else %}
+      <p class="text-secondary">El stock ({{ item.stock }}) cambia con entradas y salidas, no desde aquí.</p>
+      {% include "accounts/_campo.html" with campo=form.name_item %}
+      {% include "accounts/_campo.html" with campo=form.category %}
+      {% include "accounts/_campo.html" with campo=form.detail %}
+      {% include "accounts/_campo.html" with campo=form.price %}
+    {% endif %}
+  </div>
+  <div class="modal-footer border-0">
+    <button type="button" class="btn btn-outline-secondary" data-modal-url="{% url 'producto_detalle' item.pk %}">Cancelar</button>
+    <button type="submit" class="btn btn-nv">Guardar cambios</button>
+  </div>
+</form>

@@ -1,0 +1,55 @@
+<div class="modal-header border-0 pb-0">
+  <div>
+    <h2 class="modal-title fw-bold h4">Agregar subproducto</h2>
+    <p class="text-secondary mb-0">Producto original: <strong>{{ padre.name_item }}</strong></p>
+  </div>
+  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+</div>
+
+{% if paso == 1 %}
+<form method="post" action="{% url 'subproducto_nuevo' padre.pk %}" data-modal-form>
+  {% csrf_token %}
+  <div class="modal-body">
+    <p class="fw-semibold">Paso 1 de 2 · Código SKU del subproducto</p>
+    {% include "accounts/_campo.html" with campo=form1.code_sku %}
+    <div class="d-flex flex-row-reverse justify-content-end gap-2">
+      <button type="submit" name="accion" value="continuar" class="btn btn-nv">Continuar</button>
+      <button type="submit" 
+              name="accion" 
+              value="generar" 
+              class="btn btn-nv-borde fw-medium" 
+              style="background-color: #F3EFFE; color: #7962D9; border: 1px solid #D8CEFA;"
+              formnovalidate>
+        Generar código SKU
+      </button>
+    </div>
+  </div>
+  <div class="modal-footer border-0">
+    <button type="button" class="btn btn-outline-secondary" data-modal-url="{% url 'producto_detalle' padre.pk %}">Cancelar</button>
+  </div>
+</form>
+
+{% else %}
+<form method="post" action="{% url 'subproducto_nuevo' padre.pk %}" data-modal-form>
+  {% csrf_token %}
+  <input type="hidden" name="accion" value="crear">
+  {{ form2.code_sku.as_hidden }}
+  <div class="modal-body">
+    <p class="fw-semibold">Paso 2 de 2 · Datos del subproducto</p>
+    <dl class="row">
+      <dt class="col-sm-5">Nombre</dt><dd class="col-sm-7">{{ padre.name_item }}</dd>
+      <dt class="col-sm-5">Categoría</dt><dd class="col-sm-7">{{ padre.category|default:"—" }}</dd>
+      <dt class="col-sm-5">Precio</dt>
+      <dd class="col-sm-7">{% if padre.price is not None %}${{ padre.price|floatformat:"0g" }}{% else %}—{% endif %}</dd>
+      <dt class="col-sm-5">SKU</dt><dd class="col-sm-7"><strong>{{ form2.code_sku.value }}</strong></dd>
+    </dl>
+    {% for e in form2.code_sku.errors %}<div class="nv-error mb-2">{{ e }}</div>{% endfor %}
+    {% include "accounts/_campo.html" with campo=form2.stock %}
+    {% include "accounts/_campo.html" with campo=form2.detail %}
+  </div>
+  <div class="modal-footer border-0">
+    <button type="button" class="btn btn-outline-secondary" data-modal-url="{% url 'subproducto_nuevo' padre.pk %}">Cambiar SKU</button>
+    <button type="submit" class="btn btn-nv">Crear subproducto</button>
+  </div>
+</form>
+{% endif %}

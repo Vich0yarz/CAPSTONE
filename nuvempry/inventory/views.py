@@ -1,10 +1,11 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError
-from django.db.models import Prefetch
-from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
+from django.db.models import F
+from django.db.models.functions import Lower
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, render
+from django.utils.http import urlencode
 
 from accounts.permisos import requiere_permiso
 
@@ -13,32 +14,100 @@ from .forms import (ProductoCrearForm, ProductoEditarForm, SkuForm,
                     SubproductoCrearForm, SubproductoEditarForm)
 from .models import Item
 
+FRAG = "inventory/fragmentos/"
+
+ORDENES = {
+    "nombre": "Nombre",
+    "categoria": "Categoría",
+    "unidades": "Unidades",
+    "precio": "Precio",
+}
+TEXTO_DIR = {  # (ascendente, descendente)
+    "nombre": ("A → Z", "Z → A"),
+    "categoria": ("A → Z", "Z → A"),
+    "unidades": ("menor a mayor", "mayor a menor"),
+    "precio": ("menor a mayor", "mayor a menor"),
+}
+
+
+def _expresion_orden(clave):
+    return {
+        "nombre": Lower("name_item"),
+        "categoria": Lower("category"),
+        "unidades": F("stock"),
+        "precio": F("price"),
+    }[clave]
+
+
+def _ok(request, mensaje, ver=None):
+    """Respuesta de éxito: el JavaScript recarga la página y reabre el producto `ver`."""
+    messages.success(request, mensaje)
+    return JsonResponse({"ok": True, "ver": ver})
+
 
 @login_required
 def inventario(request):
     usuario = request.user
-    puede_editar = usuario.role.crud_item
-    form = ProductoCrearForm(request.POST or None)
+    q = request.GET.get("q", "").strip()
+    orden = request.GET.get("orden", "nombre")
+    if orden not in ORDENES:
+        orden = "nombre"
+    direccion = request.GET.get("dir", "asc")
+    if direccion not in ("asc", "desc"):
+        direccion = "asc"
 
-    if request.method == "POST":
-        if not puede_editar:
-            raise PermissionDenied  # 403: se valida en el servidor, no en el HTML
-        if form.is_valid():
-            services.crear_producto(usuario, form.cleaned_data)
-            messages.success(request, "Producto agregado.")
-            return redirect("inventario")
+    productos = Item.objects.filter(company=usuario.company, parent__isnull=True)  # solo SU empresa
+    if q:
+        productos = productos.filter(name_item__icontains=q)
+    expr = _expresion_orden(orden)
+    criterio = expr.asc(nulls_last=True) if direccion == "asc" else expr.desc(nulls_last=True)
+    productos = productos.order_by(criterio, Lower("name_item"), "pk")
 
-    productos = (
-        Item.objects.filter(company=usuario.company, parent__isnull=True)  # solo SU empresa
-        .prefetch_related(Prefetch("subproducts", queryset=Item.objects.order_by("code_sku")))
-        .order_by("name_item")
-    )
+    opciones = []
+    for clave, etiqueta in ORDENES.items():
+        activo = clave == orden
+        params = {"orden": clave, "dir": "desc" if (activo and direccion == "asc") else "asc"}
+        if q:
+            params["q"] = q
+        opciones.append({
+            "etiqueta": etiqueta,
+            "activo": activo,
+            "texto": TEXTO_DIR[clave][0 if direccion == "asc" else 1] if activo else "",
+            "url": "?" + urlencode(params),
+        })
+
     return render(request, "inventory/inventario.html", {
         "productos": productos,
-        "form": form,
-        "puede_editar": puede_editar,
-        "abrir_form": request.method == "POST",  # reabre el formulario si hubo errores
+        "q": q,
+        "orden": orden,
+        "direccion": direccion,
+        "opciones": opciones,
+        "orden_etiqueta": f"{ORDENES[orden]} ({TEXTO_DIR[orden][0 if direccion == 'asc' else 1]})",
+        "puede_editar": usuario.role.crud_item,
     })
+
+
+@login_required
+def producto_detalle(request, pk):
+    item = get_object_or_404(
+        Item.objects.select_related("parent"), pk=pk, company=request.user.company
+    )
+    es_sub = item.parent_id is not None
+    return render(request, FRAG + "detalle.html", {
+        "item": item,
+        "es_sub": es_sub,
+        "subs": [] if es_sub else item.subproducts.order_by("code_sku"),
+        "puede_editar": request.user.role.crud_item,
+    })
+
+
+@requiere_permiso("crud_item")
+def producto_nuevo(request):
+    form = ProductoCrearForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        services.crear_producto(request.user, form.cleaned_data)
+        return _ok(request, "Producto agregado.")
+    return render(request, FRAG + "crear.html", {"form": form})
 
 
 @requiere_permiso("crud_item")
@@ -57,20 +126,22 @@ def editar_producto(request, pk):
 
     if request.method == "POST" and form.is_valid():
         _, hubo_cambios = services.editar_producto(request.user, item, form.cleaned_data)
-        messages.success(request, "Cambios guardados." if hubo_cambios else "No había cambios que guardar.")
-        return redirect("inventario")
-    return render(request, "inventory/editar_producto.html",
-                  {"item": item, "form": form, "es_sub": es_sub})
+        return _ok(request, "Cambios guardados." if hubo_cambios else "No había cambios que guardar.",
+                   ver=item.pk)
+    return render(request, FRAG + "editar.html", {"item": item, "form": form, "es_sub": es_sub})
 
 
-@require_POST
 @requiere_permiso("crud_item")
 def eliminar_producto(request, pk):
-    item = get_object_or_404(Item, pk=pk, company=request.user.company)
-    nombre = item.name_item
-    services.eliminar_producto(request.user, item)
-    messages.success(request, f"«{nombre}» eliminado.")
-    return redirect("inventario")
+    item = get_object_or_404(
+        Item.objects.select_related("parent"), pk=pk, company=request.user.company
+    )
+    if request.method == "POST":
+        ver = item.parent_id  # si era subproducto, se reabre su producto original
+        nombre = item.name_item
+        services.eliminar_producto(request.user, item)
+        return _ok(request, f"«{nombre}» eliminado.", ver=ver)
+    return render(request, FRAG + "eliminar.html", {"item": item, "n_subs": item.subproducts.count()})
 
 
 @requiere_permiso("crud_item")
@@ -98,8 +169,7 @@ def subproducto_nuevo(request, pk):
             except IntegrityError:  # otro usuario tomó el mismo SKU justo antes
                 form2.add_error("code_sku", "Ese código SKU ya existe en tu empresa.")
             else:
-                messages.success(request, "Subproducto creado.")
-                return redirect("inventario")
+                return _ok(request, "Subproducto creado.", ver=padre.pk)
 
-    return render(request, "inventory/subproducto_nuevo.html",
+    return render(request, FRAG + "subproducto.html",
                   {"padre": padre, "paso": paso, "form1": form1, "form2": form2})

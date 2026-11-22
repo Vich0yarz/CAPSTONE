@@ -1,0 +1,75 @@
+<article class="card h-100 border border-light-subtle rounded-3 shadow-sm overflow-hidden nv-card">
+  <!-- Zona clicable para abrir el modal de detalle -->
+  <div class="nv-card-abrir" role="button" tabindex="0"
+       data-modal-url="{% url 'producto_detalle' p.pk %}" aria-label="Ver detalles de {{ p.name_item }}">
+    
+    <!-- Cabecera: Categoría a la izquierda, SKU a la derecha -->
+    <div class="card-header bg-white border-bottom border-light-subtle d-flex justify-content-between align-items-center py-2 px-3 nv-card-top">
+      <span class="small fw-medium text-secondary text-truncate nv-card-cat">{{ p.category|default:"Sin categoría" }}</span>
+      {% if es_sub %}<span class="badge bg-light text-secondary border fw-normal ms-2 nv-card-sku">{{ p.code_sku }}</span>{% endif %}
+    </div>
+
+    <!-- Imagen del producto -->
+    <div class="border-bottom border-light-subtle overflow-hidden" style="height: 170px;">
+      {% include "inventory/_imagen_producto.html" %}
+    </div>
+
+    <!-- Nombre (o Detalle si es subproducto) y Precio -->
+    <div class="card-body pb-2 pt-3 px-3">
+      <div class="d-flex justify-content-between align-items-start gap-2 nv-card-info">
+        {% if es_sub %}
+          <span class="fs-6 fw-semibold text-dark nv-card-nombre" 
+                style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3;"
+                title="{{ p.detail|default:p.name_item }}">
+            {{ p.detail|default:p.name_item }}
+          </span>
+        {% else %}
+          <span class="fs-5 fw-normal text-dark text-truncate nv-card-nombre" title="{{ p.name_item }}">
+            {{ p.name_item }}
+          </span>
+        {% endif %}
+        <span class="small fw-semibold text-nowrap mt-1 nv-card-precio" style="color: #7962D9;">
+          {% if p.price is not None %}${{ p.price|floatformat:"0g" }}{% endif %}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controles de stock -->
+  <div class="card-body pt-1 pb-3 px-3 d-flex flex-column justify-content-end nv-card-stock">
+    <!-- Botón subir -->
+    <button type="button" class="btn btn-sm w-100 py-1 d-flex justify-content-center align-items-center nv-stock-btn" 
+            style="background-color: #7962D9; border-color: #7962D9; color: #ffffff;"
+            aria-label="Subir stock" title="Próximamente">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <use href="#i-chevron-up"/>
+      </svg>
+    </button>
+
+    <!-- Unidades y botón check -->
+    <div class="d-flex justify-content-between align-items-center gap-2 my-2 nv-stock-fila">
+      <span class="fs-4 fw-bold text-dark text-truncate lh-1 nv-unidades">
+        {{ p.stock }} {% if p.stock == 1 %}Unidad{% else %}Unidades{% endif %}
+      </span>
+      
+      <button type="button" class="btn px-2 py-2 d-flex align-items-center justify-content-center flex-shrink-0 nv-check" 
+              style="background-color: #F3EFFE; color: #7962D9; border: 1px solid #D8CEFA; width: 38px; height: 38px;"
+              aria-label="Confirmar cambio de stock" 
+              title="Sin cambios pendientes"
+              disabled>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <use href="#i-check"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Botón bajar -->
+    <button type="button" class="btn btn-sm w-100 py-1 d-flex justify-content-center align-items-center nv-stock-btn" 
+            style="background-color: #7962D9; border-color: #7962D9; color: #ffffff;"
+            aria-label="Bajar stock" title="Próximamente">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <use href="#i-chevron-down"/>
+      </svg>
+    </button>
+  </div>
+</article>

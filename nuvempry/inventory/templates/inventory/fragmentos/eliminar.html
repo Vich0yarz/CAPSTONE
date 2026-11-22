@@ -1,0 +1,13 @@
+<form method="post" action="{% url 'eliminar_producto' item.pk %}" data-modal-form>
+  {% csrf_token %}
+  <div class="modal-body text-center p-4">
+    <h2 class="h4 fw-bold">Eliminar {% if item.parent_id %}subproducto{% else %}producto{% endif %}</h2>
+    <p>¿Eliminar <strong>{{ item.name_item }}</strong>{% if item.code_sku %} ({{ item.code_sku }}){% endif %}?
+      {% if n_subs %}También se eliminarán sus {{ n_subs }} subproducto{{ n_subs|pluralize }}.{% endif %}
+      Esta acción no se puede deshacer.</p>
+    <div class="d-flex justify-content-center gap-2">
+      <button type="button" class="btn btn-outline-secondary" data-modal-url="{% url 'producto_detalle' item.pk %}">Cancelar</button>
+      <button type="submit" class="btn btn-danger">Sí, eliminar</button>
+    </div>
+  </div>
+</form>

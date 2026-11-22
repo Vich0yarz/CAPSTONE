@@ -1,0 +1,22 @@
+<form method="post" action="{% url 'producto_nuevo' %}" data-modal-form>
+  {% csrf_token %}
+  <div class="modal-header border-0 pb-0">
+    <div>
+      <h2 class="modal-title fw-bold h4">Agregar producto</h2>
+      <p class="text-secondary mb-0">Obligatorios: nombre y stock inicial.</p>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+  </div>
+  <div class="modal-body">
+    {% for e in form.non_field_errors %}<div class="alert alert-danger py-2">{{ e }}</div>{% endfor %}
+    {% include "accounts/_campo.html" with campo=form.name_item %}
+    {% include "accounts/_campo.html" with campo=form.stock %}
+    {% include "accounts/_campo.html" with campo=form.category %}
+    {% include "accounts/_campo.html" with campo=form.detail %}
+    {% include "accounts/_campo.html" with campo=form.price %}
+  </div>
+  <div class="modal-footer border-0">
+    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+    <button type="submit" class="btn btn-nv">Confirmar</button>
+  </div>
+</form>
