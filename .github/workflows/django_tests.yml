@@ -1,6 +1,5 @@
 name: Pruebas Automáticas Django
 
-# Se ejecuta cada vez que haces push o pull request a main/master
 on:
   push:
     branches: [ main, master ]
@@ -11,28 +10,29 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    # Define la carpeta por defecto donde se ejecutarán los comandos
+    defaults:
+      run:
+        working-directory: ./nuvempry
+
     steps:
-      # 1. Descarga tu código en el servidor de GitHub
       - name: Obtener código del repositorio
         uses: actions/checkout@v4
 
-      # 2. Configura Python (ajusta a la versión que uses, ej. 3.11 o 3.12)
       - name: Configurar Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: 'pip'
+          cache-dependency-path: './nuvempry/requirements.txt'
 
-      # 3. Instala tus dependencias
       - name: Instalar dependencias
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 4. Ejecuta las pruebas de Django
       - name: Ejecutar tests de Django
         env:
-          # Variables de entorno necesarias para que settings.py no falle en la nube
           SECRET_KEY: 'clave-secreta-temporal-solo-para-tests'
           DEBUG: 'True'
         run: |
