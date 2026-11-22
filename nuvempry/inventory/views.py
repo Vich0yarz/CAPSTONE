@@ -56,7 +56,10 @@ def inventario(request):
     if direccion not in ("asc", "desc"):
         direccion = "asc"
 
-    productos = Item.objects.filter(company=usuario.company, parent__isnull=True)  # solo SU empresa
+    productos = (
+        Item.objects.filter(company=usuario.company, parent__isnull=True)
+        .prefetch_related("subproducts")
+    )
     if q:
         productos = productos.filter(name_item__icontains=q)
     expr = _expresion_orden(orden)
