@@ -36,8 +36,8 @@ class ProductoEditarForm(EstiloMixin, forms.Form):
 class ProductoCrearForm(ProductoEditarForm):
     field_order = ["name_item", "stock", "category", "detail", "price"]
     stock = forms.IntegerField(
-        label="Stock inicial", min_value=0, max_value=1_000_000_000,
-        widget=forms.NumberInput(attrs={"placeholder": "Ej: 15"}),
+        label="Stock inicial", min_value=0, max_value=9999,
+        widget=forms.NumberInput(attrs={"placeholder": "Ej: 15", "max": 9999}),
     )
 
 
@@ -67,6 +67,7 @@ class SkuForm(EstiloMixin, forms.Form):
 
 class SubproductoCrearForm(SkuForm):
     stock = forms.IntegerField(
-        label="Stock del subproducto", min_value=0, max_value=1_000_000_000, initial=0
+        label="Stock del subproducto", min_value=0, max_value=9999, initial=0,
+        widget=forms.NumberInput(attrs={"max": 9999}),
     )
     detail = forms.CharField(label="Detalle (opcional)", max_length=255, required=False)

@@ -27,7 +27,13 @@
     <dt class="col-sm-3">Precio</dt>
     <dd class="col-sm-9">{% if item.price is not None %}${{ item.price|floatformat:"0g" }}{% else %}—{% endif %}</dd>
     <dt class="col-sm-3">Stock</dt>
-    <dd class="col-sm-9">{{ item.stock }} {% if item.stock == 1 %}unidad{% else %}unidades{% endif %}</dd>
+    <dd class="col-sm-9">
+      {% if not es_sub and subs and item.stock > 9999 %}
+        +9999 unidades
+      {% else %}
+        {{ item.stock }} {% if item.stock == 1 %}unidad{% else %}unidades{% endif %}
+      {% endif %}
+    </dd>
     <dt class="col-sm-3">Detalle</dt><dd class="col-sm-9">{{ item.detail|default:"—" }}</dd>
   </dl>
 

@@ -1,18 +1,22 @@
-<article class="card h-100 border border-light-subtle rounded-3 shadow-sm overflow-hidden nv-card">
-  <!-- Zona clicable para abrir el modal de detalle -->
-  <div class="nv-card-abrir" role="button" tabindex="0"
-       data-modal-url="{% url 'producto_detalle' p.pk %}" aria-label="Ver detalles de {{ p.name_item }}">
+<article class="card h-100 border border-light-subtle rounded-3 shadow-sm overflow-hidden nv-card nv-card-abrir"
+         data-item-id="{{ p.pk }}"
+         role="button"
+         tabindex="0"
+         data-modal-url="{% url 'producto_detalle' p.pk %}"
+         aria-label="Ver detalles de {{ p.name_item }}">
+  <!-- Zona superior de información -->
+  <div class="d-flex flex-column">
     
     <!-- Cabecera: Categoría a la izquierda, SKU a la derecha -->
-    <div class="card-header bg-white border-bottom border-light-subtle d-flex justify-content-between align-items-center py-2 px-3 nv-card-top">
+    <div class="card-header bg-transparent border-bottom border-light-subtle d-flex justify-content-between align-items-center py-2 px-3 nv-card-top">
       <span class="small fw-medium text-secondary text-truncate nv-card-cat">{{ p.category|default:"Sin categoría" }}</span>
       {% if es_sub %}<span class="badge bg-light text-secondary border fw-normal ms-2 nv-card-sku">{{ p.code_sku }}</span>{% endif %}
     </div>
 
-    <!-- Imagen del producto (sin contenedor extra para respetar .nv-img) -->
+    <!-- Imagen del producto -->
     {% include "inventory/_imagen_producto.html" %}
 
-    <!-- Nombre (o Detalle si es subproducto) y Precio (sin doble padding) -->
+    <!-- Nombre (o Detalle si es subproducto) y Precio -->
     <div class="d-flex justify-content-between align-items-start gap-2 pt-3 pb-2 px-3 nv-card-info">
       {% if es_sub %}
         <span class="fs-6 fw-normal text-dark nv-card-nombre" 
@@ -34,9 +38,9 @@
   <!-- Controles de stock -->
   {% if not es_sub and p.subproducts.all %}
   <div class="pt-1 pb-3 px-3 d-flex flex-column justify-content-end nv-card-stock">
-    <div class="d-flex flex-column justify-content-center align-items-start py-2 px-3 rounded-2 bg-light border border-light-subtle" style="min-height: 120px;">
-      <span class="fs-4 fw-bold text-dark lh-1 mb-1">
-        {{ p.stock }} {% if p.stock == 1 %}Unidad{% else %}Unidades{% endif %}
+    <div class="d-flex flex-column justify-content-center align-items-start py-2 px-3 rounded-2 bg-light border border-light-subtle" style="height: 136px;">
+      <span class="fs-4 fw-bold text-dark lh-1 mb-1 nv-unidades-padre">
+        {% if p.stock > 9999 %}+9999 Unidades{% else %}{{ p.stock }} {% if p.stock == 1 %}Unidad{% else %}Unidades{% endif %}{% endif %}
       </span>
       <span class="small fw-medium d-inline-flex align-items-center gap-1" style="color: #7962D9;">
         Suma de <strong class="fw-bold">{{ p.subproducts.all|length }}</strong> subproducto{{ p.subproducts.all|length|pluralize }}
@@ -44,34 +48,62 @@
     </div>
   </div>
   {% else %}
-  <div class="pt-1 pb-3 px-3 d-flex flex-column justify-content-end nv-card-stock">
+  <div class="pt-1 pb-3 px-3 d-flex flex-column justify-content-end nv-card-stock"
+       data-stock-original="{{ p.stock }}"
+       data-stock-url="{% url 'actualizar_stock' p.pk %}">
+    
     <!-- Botón subir -->
-    <button type="button" class="btn btn-sm w-100 py-1 d-flex justify-content-center align-items-center nv-stock-btn" 
+    <button type="button" 
+            class="btn btn-sm w-100 py-1 d-flex justify-content-center align-items-center nv-stock-btn" 
             style="background-color: #7962D9; border-color: #7962D9; color: #ffffff;"
-            aria-label="Subir stock" title="Próximamente">
+            data-delta="1"
+            aria-label="Subir stock" 
+            title="Aumentar 1 unidad"
+            {% if not puede_actualizar_stock or p.stock >= 9999 %}disabled{% endif %}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <use href="#i-chevron-up"/>
       </svg>
     </button>
 
-    <!-- Unidades y botón check -->
+    <!-- Unidades (+ delta) y botones de confirmar / cancelar -->
     <div class="d-flex justify-content-between align-items-center gap-2 my-2 nv-stock-fila">
-      <span class="fs-4 fw-bold text-dark text-truncate lh-1 nv-unidades">
-        {{ p.stock }} {% if p.stock == 1 %}Unidad{% else %}Unidades{% endif %}
-      </span>
-      <button type="button" class="btn px-2 py-2 d-flex align-items-center justify-content-center flex-shrink-0 nv-check" 
-              style="background-color: #F3EFFE; color: #7962D9; border: 1px solid #D8CEFA; width: 38px; height: 38px;"
-              aria-label="Confirmar cambio de stock" title="Próximamente" disabled>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <use href="#i-check"/>
-        </svg>
-      </button>
+      <div class="d-flex align-items-baseline gap-1 flex-grow-1 min-w-0 overflow-hidden lh-1 nv-stock-texto">
+        <span class="fs-4 fw-bold text-dark text-nowrap nv-unidades">{{ p.stock }} {% if p.stock == 1 %}Unidad{% else %}Unidades{% endif %}</span>
+        <span class="fw-bold text-nowrap nv-delta" style="color: #7962D9; font-size: 0.9rem;"></span>
+      </div>
+
+      <div class="d-flex align-items-center gap-1 flex-shrink-0">
+        <button type="button"
+                class="btn btn-link text-secondary text-decoration-none border-0 bg-transparent px-1 py-0 d-flex align-items-center justify-content-center d-none nv-cancelar"
+                style="width: 24px; height: 36px;"
+                aria-label="Cancelar cambio de stock"
+                title="Deshacer cambio">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 6 6 18M6 6l12 12"/>
+          </svg>
+        </button>
+
+        <button type="button" 
+                class="btn btn-light border text-secondary px-0 py-0 d-flex align-items-center justify-content-center nv-check" 
+                style="width: 36px; height: 36px;"
+                aria-label="Confirmar cambio de stock" 
+                title="Sin cambios pendientes" 
+                disabled>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <use href="#i-check"/>
+          </svg>
+        </button>
+      </div>
     </div>
 
     <!-- Botón bajar -->
-    <button type="button" class="btn btn-sm w-100 py-1 d-flex justify-content-center align-items-center nv-stock-btn" 
+    <button type="button" 
+            class="btn btn-sm w-100 py-1 d-flex justify-content-center align-items-center nv-stock-btn" 
             style="background-color: #7962D9; border-color: #7962D9; color: #ffffff;"
-            aria-label="Bajar stock" title="Próximamente">
+            data-delta="-1"
+            aria-label="Bajar stock" 
+            title="Disminuir 1 unidad"
+            {% if not puede_actualizar_stock or p.stock <= 0 %}disabled{% endif %}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <use href="#i-chevron-down"/>
       </svg>

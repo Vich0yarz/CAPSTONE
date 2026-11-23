@@ -1,0 +1,54 @@
+<div class="modal-header border-bottom border-light-subtle px-4 py-3">
+  <div>
+    <h5 class="modal-title fw-bold mb-0" style="color: var(--nv-azul);">
+      {% if item %}{{ item.name_item }}{% else %}{{ registro.titulo_involucrado }}{% endif %}
+    </h5>
+    {% if item and item.code_sku %}
+      <span class="badge bg-light text-secondary border fw-normal mt-1">{{ item.code_sku }}</span>
+    {% endif %}
+  </div>
+  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+</div>
+
+<div class="modal-body px-4 py-3">
+  {% if item %}
+    <div class="d-flex flex-column gap-3">
+      <div>
+        <span class="small text-secondary d-block">Nombre</span>
+        <span class="fw-medium text-dark">{{ item.name_item }}</span>
+      </div>
+
+      <div>
+        <span class="small text-secondary d-block">Detalle</span>
+        <span class="text-dark">{{ item.detail|default:"Sin detalle" }}</span>
+      </div>
+
+      <div class="row g-3 pt-1">
+        <div class="col-6">
+          <div class="p-3 rounded-3 border border-light-subtle bg-light">
+            <span class="small text-secondary d-block mb-1">Precio</span>
+            <span class="fs-5 fw-bold" style="color: #7962D9;">
+              {% if item.price is not None %}${{ item.price|floatformat:"0g" }}{% else %}Sin precio{% endif %}
+            </span>
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="p-3 rounded-3 border border-light-subtle bg-light">
+            <span class="small text-secondary d-block mb-1">Stock actual</span>
+            <span class="fs-5 fw-bold text-dark">
+              {{ item.stock }} {% if item.stock == 1 %}unidad{% else %}unidades{% endif %}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <div class="alert alert-light border text-secondary mb-0">
+      Este producto o subproducto fue eliminado del inventario, por lo que ya no cuenta con stock ni precio activo.
+    </div>
+  {% endif %}
+</div>
+
+<div class="modal-footer border-top-0 px-4 pb-3 pt-1">
+  <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+</div>

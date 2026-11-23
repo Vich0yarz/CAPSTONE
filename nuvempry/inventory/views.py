@@ -87,6 +87,7 @@ def inventario(request):
         "opciones": opciones,
         "orden_etiqueta": f"{ORDENES[orden]} ({TEXTO_DIR[orden][0 if direccion == 'asc' else 1]})",
         "puede_editar": usuario.role.crud_item,
+        "puede_actualizar_stock": request.user.role.update_stock,
     })
 
 
@@ -101,6 +102,7 @@ def producto_detalle(request, pk):
         "es_sub": es_sub,
         "subs": [] if es_sub else item.subproducts.order_by("code_sku"),
         "puede_editar": request.user.role.crud_item,
+        "puede_actualizar_stock": request.user.role.update_stock,
     })
 
 
@@ -176,3 +178,31 @@ def subproducto_nuevo(request, pk):
 
     return render(request, FRAG + "subproducto.html",
                   {"padre": padre, "paso": paso, "form1": form1, "form2": form2})
+
+
+@requiere_permiso("update_stock")
+def actualizar_stock(request, pk):
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Método no permitido."}, status=405)
+
+    try:
+        nuevo_stock = int(request.POST.get("stock", ""))
+        if nuevo_stock < 0 or nuevo_stock > 9999:
+            raise ValueError("Stock fuera de rango")
+    except ValueError:
+        return JsonResponse({"ok": False, "error": "Cantidad de stock inválida (0 a 9999)."}, status=400)
+    
+    try:
+        item, hubo_cambios, stock_padre = services.actualizar_stock(request.user, pk, nuevo_stock)
+    except Item.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Producto no encontrado."}, status=404)
+    except ValueError as err:
+        return JsonResponse({"ok": False, "error": str(err)}, status=400)
+
+    return JsonResponse({
+        "ok": True,
+        "hubo_cambios": hubo_cambios,
+        "stock": item.stock,
+        "parent_id": item.parent_id,
+        "parent_stock": stock_padre,
+    })
