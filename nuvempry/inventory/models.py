@@ -12,6 +12,8 @@ class Item(models.Model):
         related_name="subproducts", db_column="id_parent",
     )
     name_item = models.CharField(max_length=255)
+    # Nota: el límite individual de 9999 se valida en forms/services, ya que un
+    # producto padre almacena la suma de sus subproductos y puede superar 9999.
     stock = models.IntegerField()
     category = models.CharField(max_length=255, null=True, blank=True)
     detail = models.CharField(max_length=255, null=True, blank=True)

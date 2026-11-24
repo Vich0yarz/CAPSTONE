@@ -79,6 +79,7 @@ def crear_producto(usuario, datos):
 
 @transaction.atomic
 def crear_subproducto(usuario, padre, sku, stock, detalle):
+    padre = Item.objects.select_for_update().get(pk=padre.pk)
     sub = Item.objects.create(
         company=padre.company,
         parent=padre,
@@ -89,6 +90,7 @@ def crear_subproducto(usuario, padre, sku, stock, detalle):
         detail=_normalizar("detail", detalle),
         code_sku=sku,
     )
+    _recalcular_stock_padre(padre)
     _registrar(
         usuario,
         padre.company,
@@ -139,6 +141,7 @@ def editar_producto(usuario, item, datos):
 
 @transaction.atomic
 def eliminar_producto(usuario, item):
+    parent_id = item.parent_id
     afectados = [item] + list(item.subproducts.all())  # el padre arrastra a sus subproductos
     for it in afectados:
         evento = Audit.SUBPRODUCT_DELETED if it.parent_id else Audit.PRODUCT_DELETED
@@ -152,6 +155,10 @@ def eliminar_producto(usuario, item):
         )
     item.delete()
 
+    if parent_id:
+        padre = Item.objects.select_for_update().get(pk=parent_id)
+        _recalcular_stock_padre(padre)
+
 
 def _recalcular_stock_padre(padre):
     """Sincroniza el stock del producto padre con la suma de sus subproductos."""
@@ -164,8 +171,8 @@ def _recalcular_stock_padre(padre):
 @transaction.atomic
 def actualizar_stock(usuario, pk, nuevo_stock):
     """Actualiza el stock de un ítem (o subproducto) y registra el evento en auditoría."""
-    if nuevo_stock < 0:
-        raise ValueError("El stock no puede ser negativo.")
+    if nuevo_stock < 0 or nuevo_stock > 9999:
+        raise ValueError("El stock debe estar entre 0 y 9999.")
 
     item = Item.objects.select_for_update().get(
         pk=pk, company=usuario.company

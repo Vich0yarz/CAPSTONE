@@ -5,6 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titulo %}Nuvempry{% endblock %}</title>
+  <link rel="icon" type="image/png" href="{% static 'img/logo.png' %}">
   <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
   <link rel="stylesheet" href="{% static 'css/nuvempry.css' %}">
   <script src="{% static 'js/app.js' %}"></script>
@@ -14,14 +15,17 @@
   <div class="app">
     <aside class="sidebar">
       <img src="{% static 'img/logo-claro.png' %}" alt="Nuvempry" class="logo">
-            <nav class="nav-nv">
-        <a href="{% url 'administracion' %}" class="{% if request.resolver_match.url_name == 'administracion' %}activo{% endif %}">
-          <svg class="ico"><use href="#i-users"/></svg> Usuarios</a>
+      <nav class="nav-nv">
+        <a href="{% url 'home' %}" class="{% if request.resolver_match.url_name == 'home' %}activo{% endif %}">
+          <svg class="ico"><use href="#i-bar-chart"/></svg> Reportes</a>
         <a href="{% url 'inventario' %}" class="{% if '/inventario/' in request.path %}activo{% endif %}">
           <svg class="ico"><use href="#i-package"/></svg> Inventario</a>
-        <a href="{% url 'auditoria' %}" class="{% if '/auditoria/' in request.path %}activo{% endif %}">
-          <svg class="ico"><use href="#i-file-text"/></svg> Auditoría</a>
-        <a href="{% url 'home' %}"><svg class="ico"><use href="#i-bar-chart"/></svg> Reportes</a>
+        {% if request.user.role.crud_user %}
+          <a href="{% url 'administracion' %}" class="{% if request.resolver_match.url_name == 'administracion' %}activo{% endif %}">
+            <svg class="ico"><use href="#i-users"/></svg> Usuarios</a>
+          <a href="{% url 'auditoria' %}" class="{% if '/auditoria/' in request.path %}activo{% endif %}">
+            <svg class="ico"><use href="#i-file-text"/></svg> Auditoría</a>
+        {% endif %}
       </nav>
       <div class="sidebar-pie nav-nv">
         <form method="post" action="{% url 'logout' %}">

@@ -98,6 +98,7 @@ class CrearProductoTests(InventarioBase):
     def test_rechaza_datos_invalidos(self):
         invalidos = [
             {"name_item": "X", "stock": -1},
+            {"name_item": "X", "stock": 10000},
             {"name_item": "X", "stock": 1, "price": -5},
             {"name_item": "X", "stock": 1, "price": "abc"},
             {"name_item": "X", "stock": 1, "price": "10.5"},
@@ -187,8 +188,8 @@ class EditarTests(InventarioBase):
         self.assertEqual((p.name_item, p.category, p.price), ("Camisa roja", "Ropa", 1500))
         a = Audit.objects.get()
         self.assertEqual(a.event_type, Audit.PRODUCT_UPDATED)
-        self.assertIn("nombre", a.involved)
-        self.assertIn("precio", a.involved)
+        self.assertIn("Camisa → Camisa roja", a.involved)
+        self.assertIn("1000 → 1500", a.involved)
         self.assertEqual(a.user_mail, "dueno@a.cl")
 
     def test_sin_cambios_no_genera_auditoria(self):
@@ -218,6 +219,8 @@ class SubproductoTests(InventarioBase):
         s = Item.objects.get(code_sku="CAM-0001")
         self.assertEqual((s.parent, s.name_item, s.category, s.price, s.stock, s.detail),
                          (padre, "Camisa", "Ropa", 1000, 3, "Talla M"))
+        padre.refresh_from_db()
+        self.assertEqual(padre.stock, 3)
         a = Audit.objects.get(event_type=Audit.SUBPRODUCT_CREATED)
         self.assertEqual((a.move_quantity, a.past_count), (3, 0))
 
@@ -289,13 +292,15 @@ class EliminarTests(InventarioBase):
         e = Audit.objects.get(event_type=Audit.SUBPRODUCT_DELETED)
         self.assertEqual((e.move_quantity, e.past_count), (-2, 2))
 
-    def test_eliminar_un_subproducto_no_toca_al_padre_y_reabre_el_original(self):
-        padre = self.producto()
-        s = self.sub(padre)
-        r = self.client.post(reverse("eliminar_producto", args=[s.pk]))
+    def test_eliminar_un_subproducto_actualiza_stock_del_padre_y_reabre_el_original(self):
+        padre = self.producto(stock=8)
+        s1 = self.sub(padre, sku="CAM-0001", stock=3)
+        self.sub(padre, sku="CAM-0002", stock=5)
+        r = self.client.post(reverse("eliminar_producto", args=[s1.pk]))
         self.assertEqual(r.json(), {"ok": True, "ver": padre.pk})
-        self.assertTrue(Item.objects.filter(pk=padre.pk).exists())
-        self.assertFalse(Item.objects.filter(pk=s.pk).exists())
+        padre.refresh_from_db()
+        self.assertEqual(padre.stock, 5)
+        self.assertFalse(Item.objects.filter(pk=s1.pk).exists())
 
 
 class AuditoriaTests(InventarioBase):
@@ -312,3 +317,114 @@ class AuditoriaTests(InventarioBase):
         self.assertEqual(self.client.get(reverse("auditoria")).status_code, 403)
         self.client.logout()
         self.assertRedirects(self.client.get(reverse("auditoria")), reverse("login"))
+
+
+class ActualizarStockTests(InventarioBase):
+    def post_stock(self, item, stock):
+        return self.client.post(reverse("actualizar_stock", args=[item.pk]), {"stock": stock})
+
+    def test_actualiza_stock_de_producto_y_audita(self):
+        p = self.producto(stock=10)
+        r = self.post_stock(p, 15)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json(), {
+            "ok": True,
+            "hubo_cambios": True,
+            "stock": 15,
+            "parent_id": None,
+            "parent_stock": None,
+        })
+        p.refresh_from_db()
+        self.assertEqual(p.stock, 15)
+        a = Audit.objects.get()
+        self.assertEqual(a.event_type, Audit.STOCK_UPDATED)
+        self.assertEqual((a.move_quantity, a.past_count, a.user_mail), (5, 10, "dueno@a.cl"))
+
+    def test_sin_cambios_no_genera_auditoria(self):
+        p = self.producto(stock=10)
+        r = self.post_stock(p, 10)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["hubo_cambios"], False)
+        self.assertFalse(Audit.objects.exists())
+
+    def test_limites_cero_y_9999(self):
+        p = self.producto(stock=10)
+        self.assertEqual(self.post_stock(p, 0).status_code, 200)
+        p.refresh_from_db()
+        self.assertEqual(p.stock, 0)
+
+        self.assertEqual(self.post_stock(p, 9999).status_code, 200)
+        p.refresh_from_db()
+        self.assertEqual(p.stock, 9999)
+
+        for invalido in (-1, 10000, "abc", ""):
+            r = self.post_stock(p, invalido)
+            self.assertEqual(r.status_code, 400, invalido)
+        p.refresh_from_db()
+        self.assertEqual(p.stock, 9999)
+
+    def test_actualiza_subproducto_y_recalcula_stock_del_padre(self):
+        padre = self.producto("Camisa", stock=8)
+        s1 = self.sub(padre, sku="CAM-0001", stock=3)
+        self.sub(padre, sku="CAM-0002", stock=5)
+
+        r = self.post_stock(s1, 10)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json(), {
+            "ok": True,
+            "hubo_cambios": True,
+            "stock": 10,
+            "parent_id": padre.pk,
+            "parent_stock": 15,
+        })
+        padre.refresh_from_db()
+        self.assertEqual(padre.stock, 15)
+        a = Audit.objects.get()
+        self.assertEqual(a.event_type, Audit.SUBPRODUCT_STOCK_UPDATED)
+        self.assertEqual((a.move_quantity, a.past_count), (7, 3))
+
+    def test_no_permite_editar_stock_directamente_en_padre_con_subproductos(self):
+        padre = self.producto("Camisa", stock=3)
+        self.sub(padre, sku="CAM-0001", stock=3)
+        r = self.post_stock(padre, 50)
+        self.assertEqual(r.status_code, 400)
+        self.assertFalse(r.json()["ok"])
+        padre.refresh_from_db()
+        self.assertEqual(padre.stock, 3)
+        self.assertFalse(Audit.objects.exists())
+
+    def test_suma_mayor_a_9999_se_muestra_como_mas_9999(self):
+        padre = self.producto("Camisa", stock=12000)
+        self.sub(padre, sku="CAM-0001", stock=6000)
+        self.sub(padre, sku="CAM-0002", stock=6000)
+
+        r_inv = self.client.get(reverse("inventario"))
+        self.assertContains(r_inv, "+9999 Unidades")
+
+        r_det = self.client.get(reverse("producto_detalle", args=[padre.pk]))
+        self.assertContains(r_det, "+9999 unidades")
+
+    def test_permisos_y_metodo_http(self):
+        p = self.producto(stock=10)
+        # GET no permitido
+        self.assertEqual(self.client.get(reverse("actualizar_stock", args=[p.pk])).status_code, 405)
+
+        # Lector no puede actualizar stock
+        self.client.force_login(self.crear("lector@a.cl", "Lector"))
+        self.assertEqual(self.post_stock(p, 20).status_code, 403)
+        p.refresh_from_db()
+        self.assertEqual(p.stock, 10)
+
+        # Operativo sí tiene update_stock
+        self.client.force_login(self.crear("op@a.cl", "Operativo"))
+        self.assertEqual(self.post_stock(p, 20).status_code, 200)
+        p.refresh_from_db()
+        self.assertEqual(p.stock, 20)
+
+    def test_aislamiento_entre_empresas(self):
+        ajeno = self.crear("otro@b.cl", "Propietario", rut=22222222, dv="2", owner=True)
+        ajeno_item = self.producto("Secreto", stock=10, empresa=ajeno.company)
+        r = self.post_stock(ajeno_item, 50)
+        self.assertEqual(r.status_code, 404)
+        ajeno_item.refresh_from_db()
+        self.assertEqual(ajeno_item.stock, 10)

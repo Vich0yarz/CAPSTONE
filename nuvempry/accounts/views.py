@@ -1,12 +1,13 @@
 from django.contrib import messages
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
-from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
-from django.core.exceptions import PermissionDenied
 
-from .forms import (CambiarClaveForm, CambiarRolForm, LoginForm, PerfilForm, RegisterForm, TrabajadorForm)
+from .forms import (CambiarClaveForm, CambiarRolForm, LoginForm, PerfilForm,
+                    RegisterForm, TrabajadorForm)
 from .models import Company, Role, User
 from .permisos import requiere_permiso, solo_anonimos
 
@@ -132,9 +133,10 @@ def administracion(request):
 @require_POST
 @requiere_permiso("crud_user")
 def eliminar_usuario(request):
+    mail = request.POST.get("mail_user", "").strip().lower()
     objetivo = get_object_or_404(
         User,
-        mail_user=request.POST.get("mail_user", ""),
+        mail_user=mail,
         company=request.user.company,  # un usuario ajeno da 404
     )
     correo = objetivo.mail_user  # se guarda antes: delete() deja la clave en None

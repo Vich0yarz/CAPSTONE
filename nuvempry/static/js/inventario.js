@@ -99,10 +99,18 @@
   }
 
   function ajustarTamanoTextoStock(contenedor, etiqueta, etiquetaDelta, original, diferencia) {
-    var baseUnidades = original >= 1000 ? 1.2 : (Math.abs(diferencia) >= 1000 ? 1.22 : 1.32);
+    var absDif = Math.abs(diferencia);
+    var esChico = original < 100 && absDif < 100;
+
+    var baseUnidades = esChico ? 1.5 : (original >= 1000 ? 1.2 : (absDif >= 1000 ? 1.22 : 1.32));
     var baseDelta = 0.9;
 
-    etiqueta.style.setProperty("font-size", baseUnidades + "rem", "important");
+    if (esChico) {
+      etiqueta.style.removeProperty("font-size");
+    } else {
+      etiqueta.style.setProperty("font-size", baseUnidades + "rem", "important");
+    }
+
     if (etiquetaDelta) {
       etiquetaDelta.style.setProperty("font-size", baseDelta + "rem", "important");
     }
@@ -112,7 +120,7 @@
 
     var escala = 1;
     while (cajaTexto.scrollWidth > cajaTexto.clientWidth && escala > 0.55) {
-      escala -= 0.05;
+      escala -= 0.03;
       etiqueta.style.setProperty("font-size", (baseUnidades * escala).toFixed(2) + "rem", "important");
       if (etiquetaDelta) {
         etiquetaDelta.style.setProperty("font-size", (baseDelta * escala).toFixed(2) + "rem", "important");
@@ -145,7 +153,7 @@
       }
 
       if (etiquetaDelta) {
-        etiquetaDelta.textContent = (diferencia > 0 ? "+ " : "- ") + Math.abs(diferencia);
+        etiquetaDelta.textContent = (diferencia > 0 ? "+" : "-") + Math.abs(diferencia);
       }
 
       ajustarTamanoTextoStock(contenedor, etiqueta, etiquetaDelta, original, diferencia);

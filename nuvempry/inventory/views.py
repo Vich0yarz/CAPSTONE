@@ -87,22 +87,23 @@ def inventario(request):
         "opciones": opciones,
         "orden_etiqueta": f"{ORDENES[orden]} ({TEXTO_DIR[orden][0 if direccion == 'asc' else 1]})",
         "puede_editar": usuario.role.crud_item,
-        "puede_actualizar_stock": request.user.role.update_stock,
+        "puede_actualizar_stock": usuario.role.update_stock,
     })
 
 
 @login_required
 def producto_detalle(request, pk):
+    usuario = request.user
     item = get_object_or_404(
-        Item.objects.select_related("parent"), pk=pk, company=request.user.company
+        Item.objects.select_related("parent"), pk=pk, company=usuario.company
     )
     es_sub = item.parent_id is not None
     return render(request, FRAG + "detalle.html", {
         "item": item,
         "es_sub": es_sub,
         "subs": [] if es_sub else item.subproducts.order_by("code_sku"),
-        "puede_editar": request.user.role.crud_item,
-        "puede_actualizar_stock": request.user.role.update_stock,
+        "puede_editar": usuario.role.crud_item,
+        "puede_actualizar_stock": usuario.role.update_stock,
     })
 
 
@@ -117,9 +118,7 @@ def producto_nuevo(request):
 
 @requiere_permiso("crud_item")
 def editar_producto(request, pk):
-    item = get_object_or_404(
-        Item.objects.select_related("parent"), pk=pk, company=request.user.company
-    )
+    item = get_object_or_404(Item, pk=pk, company=request.user.company)
     es_sub = item.parent_id is not None
     if es_sub:
         form = SubproductoEditarForm(request.POST or None, initial={"detail": item.detail})
@@ -138,9 +137,7 @@ def editar_producto(request, pk):
 
 @requiere_permiso("crud_item")
 def eliminar_producto(request, pk):
-    item = get_object_or_404(
-        Item.objects.select_related("parent"), pk=pk, company=request.user.company
-    )
+    item = get_object_or_404(Item, pk=pk, company=request.user.company)
     if request.method == "POST":
         ver = item.parent_id  # si era subproducto, se reabre su producto original
         nombre = item.name_item
@@ -187,11 +184,9 @@ def actualizar_stock(request, pk):
 
     try:
         nuevo_stock = int(request.POST.get("stock", ""))
-        if nuevo_stock < 0 or nuevo_stock > 9999:
-            raise ValueError("Stock fuera de rango")
     except ValueError:
         return JsonResponse({"ok": False, "error": "Cantidad de stock inválida (0 a 9999)."}, status=400)
-    
+
     try:
         item, hubo_cambios, stock_padre = services.actualizar_stock(request.user, pk, nuevo_stock)
     except Item.DoesNotExist:

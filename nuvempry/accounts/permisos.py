@@ -15,7 +15,7 @@ def solo_anonimos(vista):
 
 
 def requiere_permiso(permiso):
-    """Exige sesión iniciada y que el rol tenga el permiso 'crud_user'."""
+    """Exige sesión iniciada y que el rol tenga el permiso indicado (ej: 'crud_user', 'crud_item', 'update_stock')."""
     def decorador(vista):
         @wraps(vista)
         def envoltura(request, *args, **kwargs):

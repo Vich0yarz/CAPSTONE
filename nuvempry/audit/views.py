@@ -1,5 +1,4 @@
 from accounts.permisos import requiere_permiso
-from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, render
 from inventory.models import Item
 from .models import Audit
@@ -13,7 +12,8 @@ def auditoria(request):
     )
     return render(request, "audit/auditoria.html", {"eventos": eventos})
 
-@login_required
+
+@requiere_permiso("crud_user")
 def detalle_item_auditoria(request, pk):
     registro = get_object_or_404(Audit, pk=pk, company=request.user.company)
     item = None

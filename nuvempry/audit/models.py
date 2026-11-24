@@ -1,6 +1,7 @@
 import re
 from django.db import models
 
+
 class Audit(models.Model):
     PRODUCT_CREATED = "PRODUCT_CREATED"
     PRODUCT_UPDATED = "PRODUCT_UPDATED"
@@ -21,10 +22,6 @@ class Audit(models.Model):
         STOCK_UPDATED: "Stock actualizado",
         SUBPRODUCT_STOCK_UPDATED: "Stock actualizado",
     }
-
-    @property
-    def evento_legible(self):
-        return self.EVENTOS.get(self.event_type, self.event_type)
 
     id_audit = models.AutoField(primary_key=True)
     company = models.ForeignKey(
