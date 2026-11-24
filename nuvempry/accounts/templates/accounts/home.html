@@ -1,13 +1,432 @@
-{% extends "accounts/base.html" %}
+{% extends "accounts/base_app.html" %}
+{% load static %}
+{% block titulo %}Home · Nuvempry{% endblock %}
+
+{% block encabezado %}
+  <h1 class="pagina-titulo">Resumen de tu negocio</h1>
+  <p class="pagina-sub">Información clara, para ayudarte a decidir qué reponer y qué promocionar</p>
+{% endblock %}
+
 {% block content %}
-<h1>Inicio</h1>
-<p>{{ request.user.name_user }} {{ request.user.surname_user }}
-   · {{ request.user.company.name_company }} · Rol: {{ request.user.role.name_role }}</p>
-{% if request.user.role.crud_user %}
-  <p><a href="{% url 'administracion' %}">Administración de usuarios</a></p>
-{% endif %}
-<form method="post" action="{% url 'logout' %}">
-  {% csrf_token %}
-  <button type="submit">Cerrar sesión</button>
-</form>
+<div class="container-fluid py-4 px-3 px-md-4">
+  <!-- 1. Alerta accionable de reposición inteligente -->
+  <div class="card border-0 shadow-sm rounded-3 mb-4">
+    <div class="card-body">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+          <h2 class="h4 fw-bold text-dark mb-0">Atención de reposición</h2>
+          <p class="small text-secondary mb-0">
+            Productos que se agotarán en menos de {{ dias_cobertura }} días según su ritmo de salida. Haz clic en uno para ver su detalle.
+          </p>
+        </div>
+      </div>
+
+      {% if por_reponer %}
+        <div class="row g-3">
+          {% for item in por_reponer %}
+            <div class="col-12 col-sm-6 col-lg-4 col-xl-3">
+              <div role="button"
+                   tabindex="0"
+                   class="nv-reposicion-card p-3 rounded-3 border border-start border-4 {% if item.urgente %}border-danger{% else %}border-warning{% endif %} bg-light-subtle h-100 d-flex flex-column justify-content-between"
+                   data-bs-toggle="modal"
+                   data-bs-target="#modalResumenItem"
+                   data-nombre="{{ item.nombre }}"
+                   data-sku="{{ item.sku }}"
+                   data-detalle="{{ item.detalle_item }}"
+                   data-precio="{% if item.precio is not None %}${{ item.precio|floatformat:'0g' }}{% else %}Sin precio{% endif %}"
+                   data-stock="{{ item.stock }} {% if item.stock == 1 %}unidad{% else %}unidades{% endif %}">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                  <span class="fw-semibold text-dark text-truncate" title="{{ item.nombre }}">
+                    {{ item.nombre }}
+                  </span>
+                  {% if item.sku %}
+                    <span class="badge bg-white text-secondary border fw-normal flex-shrink-0">{{ item.sku }}</span>
+                  {% endif %}
+                </div>
+
+                <div>
+                  <div class="fs-5 fw-bold {% if item.urgente %}text-danger{% else %}text-warning-emphasis{% endif %} lh-sm">
+                    {{ item.estado }}
+                  </div>
+                  <div class="small text-secondary mt-1">
+                    {{ item.detalle }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-success small mb-0">
+          Tienes stock suficiente para cubrir al menos los próximos {{ dias_cobertura }} días en todos tus productos.
+        </p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- 2. Gráficos principales -->
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-lg-7">
+      <div class="card border-0 shadow-sm rounded-3 h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+            <div>
+              <h2 id="tituloGraficoMeses" class="h6 fw-bold text-dark mb-1">¿En qué meses se mueven tus productos?</h2>
+              <p id="subtituloGraficoMeses" class="small text-secondary mb-0">
+                Unidades vendidas por categoría en los últimos 12 meses
+              </p>
+            </div>
+            <button id="btnVolverCategorias" type="button" class="btn btn-sm btn-outline-secondary d-none flex-shrink-0">
+              ← Volver a categorías
+            </button>
+          </div>
+          <div style="height: 290px;">
+            <canvas id="graficoMeses"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-5">
+      <div class="card border-0 shadow-sm rounded-3 h-100">
+        <div class="card-body">
+          <h2 class="h6 fw-bold text-dark mb-1">Productos estrella (últimos 30 días)</h2>
+          <p class="small text-secondary mb-3">Los 5 artículos con mayor salida reciente</p>
+          <div style="height: 290px;">
+            <canvas id="graficoTop"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Tabla de productos sin movimiento -->
+  <div class="card border-0 shadow-sm rounded-3">
+    <div class="card-body">
+      <h2 class="h6 fw-bold text-dark mb-1">Productos sin ventas en los últimos 30 días</h2>
+      <p class="small text-secondary mb-3">
+        Artículos con unidades disponibles que llevan tiempo sin bajar.
+        <br>Considera promocionarlos o revisar su precio.
+      </p>
+
+      {% if estancados %}
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light small text-secondary">
+              <tr>
+                <th>Producto</th>
+                <th class="text-end">Stock actual</th>
+                <th class="text-end">Valor retenido</th>
+                <th class="text-end">Tiempo sin movimiento</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in estancados %}
+              <tr>
+                <td class="fw-medium text-dark">{{ item.nombre }}</td>
+                <td class="text-end">{{ item.stock }} u.</td>
+                <td class="text-end text-secondary">
+                  {% if item.valor %}${{ item.valor|floatformat:"0g" }}{% else %}Sin precio{% endif %}
+                </td>
+                <td class="text-end">
+                  {% if item.dias %}
+                    <span class="badge bg-warning-subtle text-warning-emphasis border">Hace {{ item.dias }} días</span>
+                  {% else %}
+                    <span class="badge bg-light text-secondary border">Sin salidas registradas</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="text-success small mb-0">¡Excelente! Todos tus productos con stock han tenido movimiento este mes.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Modal de resumen del producto (mismo formato que Auditoría) -->
+<div class="modal fade" id="modalResumenItem" tabindex="-1" aria-labelledby="modalResumenTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow rounded-4">
+      <div class="modal-header border-bottom border-light-subtle px-4 py-3">
+        <div>
+          <h5 class="modal-title fw-bold mb-0 text-primary" id="modalResumenTitulo"></h5>
+          <span id="modalResumenSku" class="badge bg-light text-secondary border fw-normal mt-1 d-none"></span>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <div class="modal-body px-4 py-3">
+        <div class="d-flex flex-column gap-3">
+          <div>
+            <span class="small text-secondary d-block">Nombre</span>
+            <span id="modalResumenNombre" class="fw-medium text-dark"></span>
+          </div>
+
+          <div>
+            <span class="small text-secondary d-block">Detalle</span>
+            <span id="modalResumenDetalle" class="text-dark"></span>
+          </div>
+
+          <div class="row g-3 pt-1">
+            <div class="col-6">
+              <div class="p-3 rounded-3 border border-light-subtle bg-light">
+                <span class="small text-secondary d-block mb-1">Precio</span>
+                <span id="modalResumenPrecio" class="fs-5 fw-bold text-primary"></span>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="p-3 rounded-3 border border-light-subtle bg-light">
+                <span class="small text-secondary d-block mb-1">Stock actual</span>
+                <span id="modalResumenStock" class="fs-5 fw-bold text-dark"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer border-top-0 px-4 pb-3 pt-1">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ reportes_data|json_script:"reportes-data" }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+  const datos = JSON.parse(document.getElementById("reportes-data").textContent);
+
+  // 1. Rellenar modal de resumen al abrir desde cualquier tarjeta de reposición
+  const modalResumen = document.getElementById("modalResumenItem");
+  if (modalResumen) {
+    modalResumen.addEventListener("show.bs.modal", (event) => {
+      const card = event.relatedTarget;
+      if (!card) return;
+      const nombre = card.getAttribute("data-nombre") || "";
+      const sku = card.getAttribute("data-sku") || "";
+
+      document.getElementById("modalResumenTitulo").textContent = nombre;
+      document.getElementById("modalResumenNombre").textContent = nombre;
+      document.getElementById("modalResumenDetalle").textContent = card.getAttribute("data-detalle") || "Sin detalle";
+      document.getElementById("modalResumenPrecio").textContent = card.getAttribute("data-precio") || "Sin precio";
+      document.getElementById("modalResumenStock").textContent = card.getAttribute("data-stock") || "0 unidades";
+
+      const badgeSku = document.getElementById("modalResumenSku");
+      if (sku) {
+        badgeSku.textContent = sku;
+        badgeSku.classList.remove("d-none");
+      } else {
+        badgeSku.classList.add("d-none");
+      }
+    });
+  }
+
+  // 2. Generador procedural armónico de colores
+  function colorSerie(indice, offsetHue = 252) {
+    const hue = Math.round((offsetHue + indice * 137.508) % 360);
+    return {
+      borde: `hsl(${hue}, 68%, 50%)`,
+      fondo: `hsla(${hue}, 68%, 50%, 0.12)`,
+    };
+  }
+
+  function construirDatasets(lista, claveNombre, offsetHue = 252) {
+    if (!lista || !lista.length) {
+      return [{
+        label: "Sin movimientos registrados",
+        data: datos.meses.map(() => 0),
+        ingresos: datos.meses.map(() => 0),
+        borderColor: "#7962D9",
+        tension: 0.3,
+      }];
+    }
+    return lista.map((item, idx) => {
+      const color = colorSerie(idx, offsetHue);
+      return {
+        label: item[claveNombre],
+        data: item.unidades,
+        ingresos: item.ingresos,
+        borderColor: color.borde,
+        backgroundColor: color.fondo,
+        fill: false,
+        tension: 0.3,
+        borderWidth: 2.5,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        pointBackgroundColor: color.borde,
+        pointBorderColor: "#ffffff",
+        pointBorderWidth: 1.5,
+      };
+    });
+  }
+
+  let modoDetalleCategoria = null;
+  const tituloMeses = document.getElementById("tituloGraficoMeses");
+  const subtituloMeses = document.getElementById("subtituloGraficoMeses");
+  const btnVolver = document.getElementById("btnVolverCategorias");
+
+  const chartMeses = new Chart(document.getElementById("graficoMeses"), {
+    type: "line",
+    data: {
+      labels: datos.meses,
+      datasets: construirDatasets(datos.series, "categoria"),
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: "nearest",
+        intersect: true,
+      },
+      onClick: (_event, elements) => {
+        if (modoDetalleCategoria === null && elements.length > 0 && datos.series.length > 0) {
+          const dsIndex = elements[0].datasetIndex;
+          const cat = datos.series[dsIndex]?.categoria;
+          if (cat) entrarDetalleCategoria(cat);
+        }
+      },
+      plugins: {
+        legend: {
+          display: true,
+          position: "bottom",
+          onClick: (_event, legendItem, legend) => {
+            if (modoDetalleCategoria === null) {
+              entrarDetalleCategoria(legendItem.text);
+            } else {
+              // En modo detalle de productos, la leyenda permite mostrar/ocultar líneas individuales
+              const index = legendItem.datasetIndex;
+              const ci = legend.chart;
+              if (ci.isDatasetVisible(index)) {
+                ci.hide(index);
+                legendItem.hidden = true;
+              } else {
+                ci.show(index);
+                legendItem.hidden = false;
+              }
+            }
+          },
+          labels: {
+            usePointStyle: true,
+            boxWidth: 8,
+            padding: 16,
+          },
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const unidades = ctx.parsed.y || 0;
+              const monto = (ctx.dataset.ingresos && ctx.dataset.ingresos[ctx.dataIndex]) || 0;
+              return `${ctx.dataset.label}: ${unidades} u. ($${monto.toLocaleString("es-CL")})`;
+            },
+          },
+        },
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { precision: 0 } },
+      },
+    },
+  });
+
+  function entrarDetalleCategoria(categoria) {
+    const productos = datos.detalleCategorias[categoria];
+    if (!productos) return;
+    modoDetalleCategoria = categoria;
+    chartMeses.data.datasets = construirDatasets(productos, "nombre", 210);
+    chartMeses.update();
+
+    tituloMeses.textContent = `Detalle: ${categoria}`;
+    subtituloMeses.textContent = "Unidades vendidas por producto en los últimos 12 meses";
+    btnVolver.classList.remove("d-none");
+  }
+
+  btnVolver.addEventListener("click", () => {
+    modoDetalleCategoria = null;
+    chartMeses.data.datasets = construirDatasets(datos.series, "categoria", 252);
+    chartMeses.update();
+
+    tituloMeses.textContent = "¿En qué meses se mueven tus productos?";
+    subtituloMeses.textContent = "Unidades vendidas por categoría en los últimos 12 meses";
+    btnVolver.classList.add("d-none");
+  });
+
+  // 3. Plugin para dibujar el nombre de cada producto estrella dentro de su barra
+  const textoDentroBarrasPlugin = {
+    id: "textoDentroBarras",
+    afterDatasetsDraw(chart) {
+      const { ctx } = chart;
+      const meta = chart.getDatasetMeta(0);
+      if (!meta || !meta.data) return;
+
+      ctx.save();
+      ctx.font = "600 12px system-ui, -apple-system, sans-serif";
+      ctx.textBaseline = "middle";
+
+      meta.data.forEach((bar, index) => {
+        const label = chart.data.labels[index] || "";
+        const anchoBarra = bar.x - bar.base;
+        const padding = 10;
+
+        // Si la barra es ancha, texto blanco por dentro; si es muy corta, texto oscuro a la derecha
+        if (anchoBarra > 70) {
+          ctx.fillStyle = "#ffffff";
+          const maxAncho = anchoBarra - padding * 2;
+          let texto = label;
+          while (texto.length > 3 && ctx.measureText(texto).width > maxAncho) {
+            texto = texto.slice(0, -4) + "...";
+          }
+          ctx.fillText(texto, bar.base + padding, bar.y);
+        } else {
+          ctx.fillStyle = "#334155";
+          const maxAncho = chart.chartArea.right - bar.x - padding;
+          let texto = label;
+          while (texto.length > 3 && ctx.measureText(texto).width > maxAncho) {
+            texto = texto.slice(0, -4) + "...";
+          }
+          ctx.fillText(texto, bar.x + 8, bar.y);
+        }
+      });
+      ctx.restore();
+    },
+  };
+
+  new Chart(document.getElementById("graficoTop"), {
+    type: "bar",
+    data: {
+      labels: datos.topLabels.length ? datos.topLabels : ["Sin ventas este mes"],
+      datasets: [{
+        label: "Unidades vendidas",
+        data: datos.topValues.length ? datos.topValues : [0],
+        backgroundColor: "#7962D9",
+        borderRadius: 6,
+        barPercentage: 0.72,
+      }],
+    },
+    plugins: [textoDentroBarrasPlugin],
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: (items) => items[0]?.label || "",
+            label: (ctx) => `Salidas recientes: ${ctx.parsed.x || 0} unidades`,
+          },
+        },
+      },
+      scales: {
+        x: { beginAtZero: true, ticks: { precision: 0 } },
+        y: {
+          ticks: { display: false },
+          grid: { display: false },
+        },
+      },
+    },
+  });
+</script>
 {% endblock %}
