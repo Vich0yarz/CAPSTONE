@@ -117,7 +117,7 @@ class LoginRegistroTests(Base):
 
     def test_registro_valido_crea_empresa_y_propietario(self):
         r = self.client.post(reverse("register"), self.datos)
-        self.assertRedirects(r, reverse("login"))
+        self.assertRedirects(r, reverse("home"))
         u = User.objects.get(pk="nuevo@x.cl")
         self.assertTrue(u.is_owner)
         self.assertEqual(u.role.name_role, "Propietario")
