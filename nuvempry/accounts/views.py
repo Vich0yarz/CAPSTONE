@@ -1,5 +1,6 @@
-import json
 import math
+from django.http import JsonResponse
+
 from collections import defaultdict
 from datetime import timedelta
 
@@ -267,7 +268,7 @@ def register_view(request):
                     dv=form.rut_dv,
                     name_company=d["name_company"],
                 )
-                User.objects.create_user(
+                usuario = User.objects.create_user(
                     d["mail_user"],
                     d["password"],
                     company=empresa,
@@ -279,8 +280,9 @@ def register_view(request):
         except IntegrityError:
             form.add_error(None, "No se pudo completar el registro. Intenta nuevamente.")
         else:
-            messages.success(request, "Cuenta creada. Ya puedes iniciar sesión.")
-            return redirect("login")
+            login(request, usuario)
+            request.session["iniciar_tour"] = True
+            return redirect("home")
 
     # Si hubo errores, volver al paso donde está el problema
     paso_inicial = 1
@@ -432,3 +434,10 @@ def eliminar_cuenta(request):
     logout(request)
     messages.success(request, "Tu cuenta y tu empresa fueron eliminadas.")
     return redirect("login")
+
+
+@require_POST
+@login_required
+def desactivar_tour(request):
+    request.session.pop("iniciar_tour", None)
+    return JsonResponse({"ok": True})

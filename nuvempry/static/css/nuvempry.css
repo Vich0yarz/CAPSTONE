@@ -151,6 +151,47 @@ button.rol-badge { cursor: pointer; }
 .nv-check { width: 2.2rem; height: 2.2rem; border: 1px solid var(--nv-azul); border-radius: .5rem; background: #fff;
             color: var(--nv-azul); display: flex; align-items: center; justify-content: center; padding: 0; }
 
+/* ---- Audit ---- */   
 .nv-audit-item-link { color: var(--nv-azul); transition: color .15s ease; }
 .nv-audit-item-link:hover, .nv-audit-item-link:focus { color: var(--nv-violeta); }
 .nv-card button:disabled { cursor: default; }
+
+/* ---- Tour guiado (Onboarding) ---- */
+.nv-tour-backdrop {
+position: fixed;
+inset: 0;
+background: rgba(24, 32, 64, 0.55);
+z-index: 1050;
+}
+.nv-tour-highlight {
+  position: relative !important;
+  z-index: 1055 !important;
+  box-shadow: 0 0 0 3px #fff, 0 0 0 7px var(--nv-violeta), 0 12px 28px rgba(68, 40, 180, 0.45) !important;
+  border-radius: 0.75rem !important;
+}
+.nv-tour-popover {
+  position: fixed;
+  z-index: 1060;
+  width: min(22rem, calc(100vw - 2rem));
+  background: #fff;
+  border: 1px solid var(--nv-borde);
+  border-radius: 1rem;
+  box-shadow: 0 20px 40px rgba(24, 32, 64, 0.25);
+  padding: 1.15rem 1.25rem;
+}
+.nv-tour-badge {
+  background: var(--nv-lavanda);
+  color: var(--nv-violeta);
+}
+aside.sidebar:has(.nv-tour-highlight) {
+  z-index: 1052 !important;
+}
+aside.sidebar:has(.nv-tour-highlight) a,
+aside.sidebar:has(.nv-tour-highlight) button {
+  pointer-events: none;
+  opacity: 0.45;
+}
+aside.sidebar .nv-tour-highlight {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+}

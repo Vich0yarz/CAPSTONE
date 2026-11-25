@@ -12,4 +12,5 @@ urlpatterns = [
     path("administracion/rol/", views.cambiar_rol, name="cambiar_rol"),
     path("configuracion/", views.configuracion, name="configuracion"),
     path("configuracion/eliminar/", views.eliminar_cuenta, name="eliminar_cuenta"),
+    path("tour/desactivar/", views.desactivar_tour, name="desactivar_tour"),
 ]

@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titulo %}Nuvempry{% endblock %}</title>
-  <link rel="icon" type="image/png" href="{% static 'img/logo.png' %}">
+  <link rel="icon" type="image/png" href="{% static 'img/icono.png' %}">
   <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
   <link rel="stylesheet" href="{% static 'css/nuvempry.css' %}">
   <script src="{% static 'js/app.js' %}"></script>
@@ -77,7 +77,31 @@
       {% block content %}{% endblock %}
     </div>
   </div>
+  <div id="nvTourBackdrop" class="nv-tour-backdrop d-none"></div>
+  <div id="nvTourCard" class="nv-tour-popover d-none" role="dialog" aria-live="polite">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <span id="nvTourBadge" class="badge rounded-pill nv-tour-badge fw-semibold"></span>
+      <button id="nvTourSkip" type="button" class="btn btn-link btn-sm text-secondary text-decoration-none p-0">
+        Saltar guía
+      </button>
+    </div>
+    <h6 id="nvTourTitle" class="fw-bold text-dark mb-1"></h6>
+    <p id="nvTourText" class="small text-secondary mb-3"></p>
+    <div class="d-flex justify-content-between align-items-center gap-2">
+      <span id="nvTourHint" class="small text-muted"></span>
+      <button id="nvTourNext" type="button" class="btn btn-sm btn-nv px-3">Siguiente</button>
+    </div>
+  </div>
+
+  {{ tour_pasos|json_script:"nv-tour-data" }}
+  <div id="nv-tour-config"
+       class="d-none"
+       data-iniciar="{% if tour_iniciar %}1{% else %}0{% endif %}"
+       data-url-desactivar="{% url 'desactivar_tour' %}"
+       data-csrf="{{ csrf_token }}"></div>
+
   <script src="{% static 'vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
+  <script src="{% static 'js/tour.js' %}"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>
