@@ -120,22 +120,29 @@ def editar_producto(usuario, item, datos):
 
     item.save(update_fields=list(cambios))
     detalle = "; ".join(
-        f"{_fmt(a)} → {_fmt(n)}" for c, (a, n) in cambios.items()
+        f"{ETIQUETAS[c].capitalize()}: {_fmt(a)} → {_fmt(n)}"
+        for c, (a, n) in cambios.items()
     )
-    if detalle:
-        detalle = detalle[0].upper() + detalle[1:]
     evento = Audit.SUBPRODUCT_UPDATED if item.parent_id else Audit.PRODUCT_UPDATED
     _registrar(usuario, item.company, evento, f"{_etiqueta(item)}\n{detalle}")
 
     # Los subproductos heredan nombre, categoría y precio del producto original
     compartidos = {c: n for c, (a, n) in cambios.items() if c in CAMPOS_COMPARTIDOS}
     if compartidos and item.parent_id is None:
+        campos_heredados = "; ".join(
+            f"{ETIQUETAS[c].capitalize()}: {_fmt(cambios[c][0])} → {_fmt(n)}"
+            for c, n in compartidos.items()
+        )
         for sub in item.subproducts.select_for_update():
             for campo, nuevo in compartidos.items():
                 setattr(sub, campo, nuevo)
             sub.save(update_fields=list(compartidos))
-            _registrar(usuario, item.company, Audit.SUBPRODUCT_UPDATED,
-                       f"{_etiqueta(sub)}\nHeredó cambios del producto original")
+            _registrar(
+                usuario,
+                item.company,
+                Audit.SUBPRODUCT_UPDATED,
+                f"{_etiqueta(sub)}\n{campos_heredados}",
+            )
     return item, True
 
 

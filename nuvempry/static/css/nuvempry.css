@@ -105,8 +105,7 @@ button.rol-badge { cursor: pointer; }
 .acciones { width: 2.75rem; display: flex; justify-content: center; }
 .btn-icono { background: none; border: 0; color: var(--nv-violeta); padding: .4rem; border-radius: .5rem; line-height: 0; }
 .btn-icono:hover { background: #E3D9FA; }
-.nv-info { display: flex; align-items: center; gap: .75rem; background: #D9D0F7; border: 1px solid #B9AAEF;
-           border-radius: .75rem; padding: .9rem 1.2rem; color: var(--nv-morado); max-width: 40rem; margin-top: 1.5rem; }
+.nv-info { display: inline-flex; align-items: center; gap: .75rem; background: #D9D0F7; border: 1px solid #B9AAEF; border-radius: .75rem; padding: .9rem 1.2rem; color: var(--nv-morado); max-width: 100%; margin-top: 1.5rem; }
 .nv-modal { border-radius: 1.25rem; }
 
 /* ---- Configuración de la cuenta ---- */
@@ -194,4 +193,124 @@ aside.sidebar:has(.nv-tour-highlight) button {
 aside.sidebar .nv-tour-highlight {
   pointer-events: auto !important;
   opacity: 1 !important;
+}
+
+/* ---- Pie de barra lateral (Empresa y controles rápidos) ---- */
+.sidebar-empresa {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.85rem;
+  padding: 0.75rem 0.95rem;
+}
+.sidebar-acceso {
+  color: #C9CEE3;
+  margin-top: 0.15rem;
+}
+
+/* ---- Modo oscuro (armonizado con paleta Nuvempry) ---- */
+html[data-bs-theme="dark"] {
+  --nv-lavanda: #11162B;
+  --nv-borde: #2A3356;
+  --nv-texto-suave: #9CA6C7;
+}
+
+html[data-bs-theme="dark"] body {
+  color: #EAEFFF;
+  background-color: var(--nv-lavanda);
+}
+
+html[data-bs-theme="dark"] .sidebar {
+  background: #0D1122;
+  border-right: 1px solid var(--nv-borde);
+}
+
+html[data-bs-theme="dark"] .btn-sidebar,
+html[data-bs-theme="dark"] .usuario-menu,
+html[data-bs-theme="dark"] .nv-audit-item-link {
+  color: #EAEFFF;
+}
+
+html[data-bs-theme="dark"] .avatar {
+  background: #27204A;
+  color: #C4B5FD;
+}
+
+/* Superficies y tarjetas personalizadas */
+html[data-bs-theme="dark"] .bg-white,
+html[data-bs-theme="dark"] .card,
+html[data-bs-theme="dark"] .nv-card,
+html[data-bs-theme="dark"] .tarjeta-usuario,
+html[data-bs-theme="dark"] .tarjeta-config,
+html[data-bs-theme="dark"] .tabs-rol,
+html[data-bs-theme="dark"] .nv-tour-popover {
+  background-color: #182040 !important;
+  border-color: var(--nv-borde) !important;
+  color: #EAEFFF;
+}
+
+html[data-bs-theme="dark"] .bg-light,
+html[data-bs-theme="dark"] .bg-light-subtle,
+html[data-bs-theme="dark"] .nv-check {
+  background-color: #1E274C !important;
+  border-color: var(--nv-borde) !important;
+  color: #EAEFFF !important;
+}
+
+html[data-bs-theme="dark"] .text-dark {
+  color: #F4F6FF !important;
+}
+
+html[data-bs-theme="dark"] .text-secondary,
+html[data-bs-theme="dark"] .text-muted {
+  color: var(--nv-texto-suave) !important;
+}
+
+html[data-bs-theme="dark"] .table {
+  --bs-table-bg: transparent;
+  --bs-table-hover-bg: rgba(121, 98, 217, 0.14);
+  color: #EAEFFF;
+}
+
+html[data-bs-theme="dark"] .table thead,
+html[data-bs-theme="dark"] .table-light {
+  --bs-table-bg: #131933;
+  background-color: #131933 !important;
+  color: var(--nv-texto-suave) !important;
+}
+
+html[data-bs-theme="dark"] .nv-info {
+  background: rgba(121, 98, 217, 0.18);
+  border-color: rgba(121, 98, 217, 0.4);
+  color: #D8CEFA;
+}
+
+html[data-bs-theme="dark"] .btn-nv-borde {
+  background: transparent;
+  color: #C4B5FD;
+  border-color: var(--nv-violeta);
+}
+
+html[data-bs-theme="dark"] .btn-nv-borde:hover {
+  background: var(--nv-violeta);
+  color: #fff;
+}
+
+html[data-bs-theme="dark"] .table-light,
+html[data-bs-theme="dark"] .table-light > tr,
+html[data-bs-theme="dark"] .table-light > tr > th {
+  --bs-table-bg: #131933 !important;
+  --bs-table-color: #CBD5E1 !important;
+  background-color: #131933 !important;
+  color: #CBD5E1 !important;
+  border-color: var(--nv-borde) !important;
+}
+
+.btn-filtro-nv {
+  background-color: #F3EFFE;
+  color: #7962D9;
+  border: 1px solid #D8CEFA;
+}
+
+.btn-filtro-nv.activo {
+  background-color: #E8E0FC;
 }

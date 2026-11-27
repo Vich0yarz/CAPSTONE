@@ -30,12 +30,12 @@
   </div>
 
   {% if u.is_owner or u.pk == request.user.pk %}
-    <span class="rol-badge {% if u.role.crud_user %}rol-prop{% endif %}">
+    <span class="rol-badge {% if u.is_owner %}rol-prop{% endif %}">
       {% include "accounts/_rol_icono.html" with rol=u.role %} {{ u.role.name_role }}
     </span>
   {% else %}
     <div class="dropdown">
-      <button type="button" class="rol-badge {% if u.role.crud_user %}rol-prop{% endif %}"
+      <button type="button" class="rol-badge {% if u.is_owner %}rol-prop{% endif %}"
               data-bs-toggle="dropdown" aria-expanded="false">
         {% include "accounts/_rol_icono.html" with rol=u.role %} {{ u.role.name_role }}
         <svg class="ico ico-sm"><use href="#i-chevron-down"/></svg>
@@ -117,6 +117,14 @@
           {% include "accounts/_campo.html" with campo=form.password %}
           {% include "accounts/_campo.html" with campo=form.password2 %}
           {% include "accounts/_campo.html" with campo=form.role %}
+
+          <div id="ayuda-rol" class="nv-info mt-2 mb-0 d-none" role="status" aria-live="polite">
+            <svg class="ico flex-shrink-0"><use href="#i-shield"/></svg>
+            <div class="small">
+              <strong id="ayuda-rol-titulo" class="d-block"></strong>
+              <span id="ayuda-rol-desc"></span>
+            </div>
+          </div>
         </div>
         <div class="modal-footer border-0">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -133,4 +141,16 @@
 {% if abrir_form %}
 <script>new bootstrap.Modal(document.getElementById("modal-agregar")).show();</script>
 {% endif %}
+<script id="roles-info-data" type="application/json">
+{
+  {% for r in roles %}
+  "{{ r.pk }}": {
+    "nombre": "{{ r.name_role|escapejs }}",
+    "crud_user": {{ r.crud_user|yesno:"true,false" }},
+    "crud_item": {{ r.crud_item|yesno:"true,false" }},
+    "update_stock": {{ r.update_stock|yesno:"true,false" }}
+  }{% if not forloop.last %},{% endif %}
+  {% endfor %}
+}
+</script>
 {% endblock %}

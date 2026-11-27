@@ -1,3 +1,5 @@
-{% if rol.crud_user %}<svg class="ico"><use href="#i-shield"/></svg>
+{% if rol.crud_user and rol.crud_item %}<svg class="ico"><use href="#i-shield"/></svg>
+{% elif rol.crud_user %}<svg class="ico"><use href="#i-users"/></svg>
+{% elif rol.crud_item %}<svg class="ico"><use href="#i-package"/></svg>
 {% elif rol.update_stock %}<svg class="ico"><use href="#i-clipboard"/></svg>
 {% else %}<svg class="ico"><use href="#i-eye"/></svg>{% endif %}

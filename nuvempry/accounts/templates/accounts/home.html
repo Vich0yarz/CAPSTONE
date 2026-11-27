@@ -317,10 +317,14 @@
         },
         tooltip: {
           callbacks: {
+            title: (items) => `${items[0]?.label || ""}`,
             label: (ctx) => {
               const unidades = ctx.parsed.y || 0;
               const monto = (ctx.dataset.ingresos && ctx.dataset.ingresos[ctx.dataIndex]) || 0;
-              return `${ctx.dataset.label}: ${unidades} u. ($${monto.toLocaleString("es-CL")})`;
+              return [
+                `${ctx.dataset.label}:`,
+                `${unidades} unidades vendidas ($${monto.toLocaleString("es-CL")})`,
+              ];
             },
           },
         },
@@ -380,7 +384,7 @@
           }
           ctx.fillText(texto, bar.base + padding, bar.y);
         } else {
-          ctx.fillStyle = "#334155";
+          ctx.fillStyle = coloresChart().barraCorta;
           const maxAncho = chart.chartArea.right - bar.x - padding;
           let texto = label;
           while (texto.length > 3 && ctx.measureText(texto).width > maxAncho) {
@@ -393,7 +397,7 @@
     },
   };
 
-  new Chart(document.getElementById("graficoTop"), {
+  const chartTop = new Chart(document.getElementById("graficoTop"), {
     type: "bar",
     data: {
       labels: datos.topLabels.length ? datos.topLabels : ["Sin ventas este mes"],
@@ -428,5 +432,32 @@
       },
     },
   });
+
+  // Sincronizar colores de Chart.js con el modo oscuro/claro
+  function coloresChart() {
+    const oscuro = document.documentElement.getAttribute("data-bs-theme") === "dark";
+    return {
+      texto: oscuro ? "#CBD5E1" : "#5B6280",
+      grilla: oscuro ? "rgba(201, 206, 227, 0.12)" : "rgba(24, 32, 64, 0.08)",
+      barraCorta: oscuro ? "#E2E8F0" : "#334155",
+    };
+  }
+
+  function aplicarTemaGraficos() {
+    const c = coloresChart();
+    chartMeses.options.plugins.legend.labels.color = c.texto;
+    chartMeses.options.scales.x.ticks.color = c.texto;
+    chartMeses.options.scales.y.ticks.color = c.texto;
+    chartMeses.options.scales.x.grid.color = c.grilla;
+    chartMeses.options.scales.y.grid.color = c.grilla;
+    chartMeses.update("none");
+
+    chartTop.options.scales.x.ticks.color = c.texto;
+    chartTop.options.scales.x.grid.color = c.grilla;
+    chartTop.update("none");
+  }
+
+  aplicarTemaGraficos();
+  document.addEventListener("nv:tema-cambiado", aplicarTemaGraficos);
 </script>
 {% endblock %}

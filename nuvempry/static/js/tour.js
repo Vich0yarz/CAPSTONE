@@ -46,6 +46,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let targetActual = null;
   let modalAbierto = false;
   let envioFormularioEnModal = false;
+  let tourFinalizado = false;
 
   function limpiarDestacado() {
     document.querySelectorAll(".nv-tour-highlight").forEach((el) => {
@@ -54,6 +55,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function finalizarTour() {
+    tourFinalizado = true;
     sessionStorage.removeItem(STORAGE_KEY);
     targetActual = null;
     limpiarDestacado();
@@ -98,12 +100,10 @@ document.addEventListener("DOMContentLoaded", () => {
     let left = estaALaDerecha ? rect.right - cardWidth : rect.left;
     left = Math.max(margen, Math.min(left, vw - cardWidth - margen));
 
-    // Preferir debajo del elemento; si no cabe abajo, colocar encima
     let top = rect.bottom + 14;
     if (top + cardHeight > vh - margen) {
       top = rect.top - cardHeight - 14;
     }
-    // Mantener siempre dentro de los límites verticales visibles de la pantalla
     top = Math.max(margen, Math.min(top, vh - cardHeight - margen));
 
     card.style.left = `${left}px`;
@@ -122,7 +122,27 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function formatearTextoTour(texto) {
+    return String(texto || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.+?)\*/g, "<em>$1</em>")
+      .replace(/\n/g, "<br>");
+  }
+
+  function esPasoObligatorio() {
+    if (paso.obligatorio) return true;
+    if (paso.obligatorioSiNoExiste) {
+      return document.querySelector(paso.obligatorioSiNoExiste) === null;
+    }
+    return false;
+  }
+
   function mostrarPaso() {
+    if (tourFinalizado) return;
+
     if (window.location.pathname !== paso.ruta) {
       window.location.href = paso.ruta;
       return;
@@ -132,6 +152,7 @@ document.addEventListener("DOMContentLoaded", () => {
       asegurarSidebarAbierta();
     }
 
+    limpiarDestacado();
     targetActual = document.querySelector(paso.selector);
     backdrop.classList.remove("d-none");
     card.classList.remove("d-none");
@@ -151,15 +172,11 @@ document.addEventListener("DOMContentLoaded", () => {
         : "Completa esta acción para continuar";
     } else {
       btnNext.classList.remove("d-none");
-
       const textoBoton = esUltimo ? "Finalizar" : "Siguiente";
       btnNext.textContent = textoBoton;
-
-      if (esUltimo || paso.avanzar_al_click) {
-        hintEl.textContent = ""
-      } else {
-        hintEl.textContent = `Pulsa ${textoBoton.toLocaleLowerCase()} para saltar`;
-      }
+      hintEl.textContent = (esUltimo || paso.avanzarAlClick)
+        ? ""
+        : `Pulsa ${textoBoton.toLocaleLowerCase()} para saltar`;
     }
 
     if (targetActual) {
@@ -168,20 +185,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (paso.avanzarAlClick) {
         targetActual.addEventListener("click", () => {
+          if (tourFinalizado || sessionStorage.getItem(STORAGE_KEY) === null) return;
           sessionStorage.setItem(STORAGE_KEY, String(pasoActual + 1));
         }, { once: true });
       }
     }
 
     posicionarTarjeta(targetActual);
-  }
-
-  function esPasoObligatorio() {
-    if (paso.obligatorio) return true;
-    if (paso.obligatorioSiNoExiste) {
-      return document.querySelector(paso.obligatorioSiNoExiste) === null;
-    }
-    return false;
   }
 
   // Actualizar posición continuamente mientras se hace scroll o cambia el tamaño de ventana
@@ -193,16 +203,6 @@ document.addEventListener("DOMContentLoaded", () => {
       posicionarTarjeta(targetActual);
       rafScroll = null;
     });
-  }
-
-  function formatearTextoTour(texto) {
-    return String(texto || "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-      .replace(/\*(.+?)\*/g, "<em>$1</em>")
-      .replace(/\n/g, "<br>");
   }
 
   window.addEventListener("scroll", actualizarPosicionEnPantalla, { passive: true });
@@ -217,6 +217,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   document.addEventListener("submit", (e) => {
+    if (tourFinalizado || sessionStorage.getItem(STORAGE_KEY) === null) return;
     if (!modalAbierto || !paso.pausaEnModal) return;
     if (!e.target.closest(".modal")) return;
 
@@ -230,7 +231,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.addEventListener("hidden.bs.modal", () => {
     modalAbierto = false;
-    if (sessionStorage.getItem(STORAGE_KEY) === null) return;
+    if (tourFinalizado || sessionStorage.getItem(STORAGE_KEY) === null) return;
 
     if (paso.pausaEnModal) {
       if (envioFormularioEnModal) {
@@ -264,6 +265,23 @@ document.addEventListener("DOMContentLoaded", () => {
   btnNext.addEventListener("click", () => {
     if (!esPasoObligatorio()) avanzarPaso();
   });
+
+  // Avanzar pulsando elementos dentro del elemento seleccionado
+  if (paso.avanzarAlClickSelector) {
+    document.addEventListener("click", (e) => {
+      if (tourFinalizado || sessionStorage.getItem(STORAGE_KEY) === null) return;
+      const btnAccion = e.target.closest(paso.avanzarAlClickSelector);
+
+      if (!btnAccion || btnAccion.disabled) return;
+      if (targetActual && !targetActual.contains(btnAccion)) return;
+
+      setTimeout(() => {
+        if (!tourFinalizado && sessionStorage.getItem(STORAGE_KEY) !== null) {
+          avanzarPaso();
+        }
+      }, 400);
+    }, true);
+  }
 
   setTimeout(mostrarPaso, 200);
 });

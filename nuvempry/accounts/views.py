@@ -1,9 +1,10 @@
 import math
-from django.http import JsonResponse
 
 from collections import defaultdict
 from datetime import timedelta
 
+from django.http import JsonResponse
+from django.views.decorators.cache import never_cache
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
@@ -23,7 +24,7 @@ from .models import Company, Role, User
 from .permisos import requiere_permiso, solo_anonimos
 
 
-MESES_ES = ("Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic")
+MESES_ES = ("Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",)
 DIAS_COBERTURA_MINIMA = 7   # días
 MINIMO_SIN_HISTORIAL = 3    # stock
 
@@ -76,7 +77,7 @@ def home(request):
     y, m = ahora.year, ahora.month
     for _ in range(12):
         claves_meses.append((y, m))
-        etiquetas_meses.append(f"{MESES_ES[m - 1]} {str(y)[2:]}")
+        etiquetas_meses.append(f"{MESES_ES[m - 1]}")
         m -= 1
         if m == 0:
             m = 12
@@ -255,6 +256,7 @@ def logout_view(request):
 CAMPOS_PASO_1 = ("name_user", "surname_user", "mail_user", "password", "password2")
 
 
+@never_cache
 @solo_anonimos
 def register_view(request):
     form = RegisterForm(request.POST or None)
@@ -283,7 +285,6 @@ def register_view(request):
             login(request, usuario)
             request.session["iniciar_tour"] = True
             return redirect("home")
-
     # Si hubo errores, volver al paso donde está el problema
     paso_inicial = 1
     if form.is_bound and form.errors and not any(c in form.errors for c in CAMPOS_PASO_1):

@@ -29,6 +29,7 @@ PASOS_TOUR_INICIAL = [
     {
         "url_name": "inventario",
         "selector": ".nv-card",
+        "avanzar_al_click_selector": ".nv-check",
         "titulo": "Controla entradas y salidas de stock",
         "texto": "En la tarjeta del producto, usa los botones morados para sumar o descontar unidades y confirma con el botón ✓.",
         "avanzar_al_click": False,
@@ -90,6 +91,7 @@ def obtener_pasos_tour():
         pasos_resueltos.append({
             "ruta": reverse(paso["url_name"]),
             "selector": paso["selector"],
+            "avanzarAlClickSelector": paso.get("avanzar_al_click_selector"),
             "titulo": paso["titulo"],
             "texto": paso["texto"],
             "avanzarAlClick": paso.get("avanzar_al_click", False),

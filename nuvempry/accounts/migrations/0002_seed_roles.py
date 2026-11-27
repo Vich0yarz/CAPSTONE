@@ -6,6 +6,8 @@ def crear_roles(apps, schema_editor):
     roles = [
         ("Propietario", True, True, True),
         ("Operativo", False, False, True),
+        ("Bodeguero", False, True, True),
+        ("Auditor", True, False, False),
         ("Lector", False, False, False),
     ]
     for nombre, crud_user, crud_item, update_stock in roles:

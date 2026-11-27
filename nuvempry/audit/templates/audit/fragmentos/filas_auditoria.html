@@ -1,0 +1,82 @@
+{% for a in eventos %}
+<tr>
+  <!-- Fecha y hora separadas visualmente -->
+  <td class="ps-4 text-nowrap">
+    <div class="fw-medium text-dark">{{ a.date_time|date:"d-m-Y" }}</div>
+    <div class="small text-secondary">{{ a.date_time|date:"H:i:s" }}</div>
+  </td>
+
+  <!-- Evento con píldora morada suave + etiqueta opcional debajo -->
+  <td>
+    <div class="d-flex flex-column align-items-start gap-1">
+      <span class="badge fw-medium px-2 py-1 rounded-2"
+            style="background-color: #F3EFFE; color: #7962D9; border: 1px solid #E3D9FA;">
+        {{ a.evento_legible }}
+      </span>
+      {% if a.detalle_evento %}
+        <span class="badge bg-light text-secondary border fw-medium px-2 py-1 rounded-2">
+          {{ a.detalle_evento }}
+        </span>
+      {% endif %}
+    </div>
+  </td>
+
+  <!-- Producto / Elemento involucrado -->
+  <td class="fw-medium text-dark" style="max-width: 320px;">
+    <div class="text-truncate" title="{{ a.involucrado_limpio }}">
+      <a href="#"
+         class="text-decoration-none fw-semibold nv-audit-item-link"
+         data-audit-url="{% url 'auditoria_item_detalle' a.pk %}">
+        {{ a.titulo_involucrado }}
+      </a>
+      {% if a.subtitulo_involucrado %}
+        <div class="small text-secondary text-truncate">{{ a.subtitulo_involucrado }}</div>
+      {% endif %}
+    </div>
+  </td>
+
+  <!-- Stock -->
+  <td class="text-center fw-semibold">
+    {% if a.stock_legible is not None %}
+      {% if a.event_type == 'STOCK_UPDATED' or a.event_type == 'SUBPRODUCT_STOCK_UPDATED' %}
+        {% if a.move_quantity > 0 %}
+          <span class="text-success">{{ a.stock_legible }}</span>
+        {% elif a.move_quantity < 0 %}
+          <span class="text-danger">{{ a.stock_legible }}</span>
+        {% else %}
+          <span class="text-dark">{{ a.stock_legible }}</span>
+        {% endif %}
+      {% else %}
+        <span class="text-dark">{{ a.stock_legible }}</span>
+      {% endif %}
+    {% else %}
+      <span class="text-muted">—</span>
+    {% endif %}
+  </td>
+
+  <!-- Usuario con icono -->
+  <td class="pe-4 text-nowrap">
+    <div class="d-inline-flex align-items-center gap-2 text-secondary small">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <use href="#i-user"/>
+      </svg>
+      <span>{{ a.user_mail }}</span>
+    </div>
+  </td>
+</tr>
+{% empty %}
+  {% if not es_parcial %}
+  <tr>
+    <td colspan="5" class="text-center py-5">
+      <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3"
+           style="width: 56px; height: 56px; background-color: #F3EFFE; color: #7962D9;">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <use href="#i-clipboard"/>
+        </svg>
+      </div>
+      <p class="fw-semibold text-dark mb-1">Aún no hay eventos registrados</p>
+      <p class="small text-secondary mb-0">Los movimientos de productos y ajustes de stock aparecerán aquí.</p>
+    </td>
+  </tr>
+  {% endif %}
+{% endfor %}

@@ -69,11 +69,11 @@ class FormConClave(forms.Form):
     )
     password = forms.CharField(
         label="Contraseña",
-        widget=forms.PasswordInput(attrs=_attrs("Mínimo 8 caracteres", autocomplete="new-password")),
+        widget=forms.PasswordInput(render_value=True, attrs=_attrs("Mínimo 8 caracteres", autocomplete="new-password")),
     )
     password2 = forms.CharField(
         label="Confirmar contraseña",
-        widget=forms.PasswordInput(attrs=_attrs("Repite tu contraseña", autocomplete="new-password")),
+        widget=forms.PasswordInput(render_value=True, attrs=_attrs("Repite tu contraseña", autocomplete="new-password")),
     )
 
     def clean_mail_user(self):

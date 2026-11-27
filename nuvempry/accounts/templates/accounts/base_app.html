@@ -27,11 +27,28 @@
             <svg class="ico"><use href="#i-file-text"/></svg> Auditoría</a>
         {% endif %}
       </nav>
-      <div class="sidebar-pie nav-nv">
-        <form method="post" action="{% url 'logout' %}">
-          {% csrf_token %}
-          <button type="submit"><svg class="ico"><use href="#i-log-out"/></svg> Cerrar sesión</button>
-        </form>
+
+
+      <div class="sidebar-pie">
+        <div class="sidebar-empresa mb-3">
+          <div class="fw-bold text-white text-truncate" title="{{ request.user.company.name_company }}">
+            {{ request.user.company.name_company }}
+          </div>
+          <div class="small sidebar-acceso">
+            Acceso: <span class="fw-semibold text-white">{{ request.user.role.name_role }}</span>
+          </div>
+        </div>
+
+        <div class="nav-nv">
+          <button type="button" id="btn-tema" aria-pressed="false">
+            <svg class="ico" id="ico-tema"><use href="#i-moon"/></svg>
+            <span id="txt-tema">Modo oscuro</span>
+          </button>
+          <button type="button" id="btn-escala" aria-pressed="true">
+            <svg class="ico"><use href="#i-type"/></svg>
+            <span id="txt-escala">Tamaño: Grande</span>
+          </button>
+        </div>
       </div>
     </aside>
 
